@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f5f1e8" />
+    <meta name="description" content="Личные заметки с синхронизацией между компьютером и телефоном" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+    <title>Тихие заметки</title>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="Тихие заметки">
+          <span class="brand-mark">т.</span>
+          <span>тихие заметки</span>
+        </a>
+        <div class="top-actions">
+          <span id="syncStatus" class="sync-status" aria-live="polite">локально</span>
+          <button id="installButton" class="button ghost hidden" type="button">Установить</button>
+          <button id="accountButton" class="avatar-button" type="button" aria-label="Аккаунт">Войти</button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <aside class="sidebar">
+          <div class="sidebar-heading">
+            <p class="eyebrow">Ваше пространство</p>
+            <h1>Мысли,<br />которые остаются.</h1>
+          </div>
+          <nav class="filters" aria-label="Фильтры заметок">
+            <button class="filter active" data-filter="all" type="button"><span>Все заметки</span><b id="allCount">0</b></button>
+            <button class="filter" data-filter="pinned" type="button"><span>Закреплённые</span><b id="pinnedCount">0</b></button>
+          </nav>
+          <div class="sidebar-note">
+            <span class="dot"></span>
+            <p>Записи сохраняются автоматически на этом устройстве.</p>
+          </div>
+        </aside>
+
+        <section class="content">
+          <div class="content-toolbar">
+            <label class="search">
+              <span aria-hidden="true">⌕</span>
+              <input id="searchInput" type="search" placeholder="Найти заметку" autocomplete="off" />
+            </label>
+            <button id="newNoteButton" class="button primary" type="button"><span>＋</span> Новая заметка</button>
+          </div>
+
+          <div id="emptyState" class="empty-state hidden">
+            <span class="empty-glyph">✦</span>
+            <h2>Здесь пока тихо</h2>
+            <p>Создайте первую заметку — она сохранится автоматически.</p>
+            <button id="emptyNewButton" class="button primary" type="button">Создать заметку</button>
+          </div>
+          <div id="notesGrid" class="notes-grid" aria-live="polite"></div>
+        </section>
+      </main>
+    </div>
+
+    <div id="editorBackdrop" class="backdrop hidden"></div>
+    <section id="editor" class="editor hidden" aria-label="Редактор заметки">
+      <div class="editor-head">
+        <button id="closeEditorButton" class="icon-button" type="button" aria-label="Закрыть">←</button>
+        <div class="editor-actions">
+          <button id="pinButton" class="icon-button" type="button" aria-label="Закрепить">◇</button>
+          <button id="deleteButton" class="icon-button danger" type="button" aria-label="Удалить">⌫</button>
+        </div>
+      </div>
+      <input id="noteTitle" class="note-title" type="text" placeholder="Без названия" maxlength="160" />
+      <textarea id="noteContent" class="note-content" placeholder="Начните писать…"></textarea>
+      <footer class="editor-footer">
+        <span id="editedAt">Сохранено</span>
+        <span id="charCount">0 знаков</span>
+      </footer>
+    </section>
+
+    <dialog id="authDialog" class="auth-dialog">
+      <form id="authForm" method="dialog">
+        <button id="closeAuthButton" class="dialog-close" type="button" aria-label="Закрыть">×</button>
+        <p class="eyebrow">Синхронизация</p>
+        <h2>Ваши заметки<br />на каждом устройстве</h2>
+        <p class="dialog-copy">Войдите с одним email на компьютере и телефоне.</p>
+        <label>Email<input id="emailInput" type="email" required autocomplete="email" placeholder="name@example.com" /></label>
+        <label>Пароль<input id="passwordInput" type="password" required minlength="6" autocomplete="current-password" placeholder="Минимум 6 символов" /></label>
+        <p id="authMessage" class="form-message" role="alert"></p>
+        <button id="signInButton" class="button primary full" type="submit">Войти</button>
+        <button id="signUpButton" class="button ghost full" type="button">Создать аккаунт</button>
+        <button id="signOutButton" class="button text full hidden" type="button">Выйти из аккаунта</button>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast hidden" role="status"></div>
+    <script src="./config.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

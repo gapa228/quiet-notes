@@ -4,11 +4,10 @@ const cloudEnabled = Boolean(config.supabaseUrl && config.supabaseAnonKey);
 const $ = (selector) => document.querySelector(selector);
 const els = {
   grid: $("#notesGrid"), empty: $("#emptyState"), search: $("#searchInput"),
-  todayCount: $("#todayCount"), upcomingCount: $("#upcomingCount"), allCount: $("#allCount"), pinnedCount: $("#pinnedCount"), sync: $("#syncStatus"),
+  todayCount: $("#todayCount"), upcomingCount: $("#upcomingCount"), purchasesCount: $("#purchasesCount"), allCount: $("#allCount"), pinnedCount: $("#pinnedCount"), sync: $("#syncStatus"),
   editor: $("#editor"), backdrop: $("#editorBackdrop"), title: $("#noteTitle"),
   type: $("#itemType"), date: $("#noteDate"), repeat: $("#repeatRule"), repeatInterval: $("#repeatInterval"), amount: $("#itemAmount"),
   content: $("#noteContent"), charCount: $("#charCount"), editedAt: $("#editedAt"), expensesView: $("#expensesView"),
-  summaryToday: $("#summaryToday"), summarySpend: $("#summarySpend"), summaryTopCategory: $("#summaryTopCategory"), summaryUpcoming: $("#summaryUpcoming"),
   pin: $("#pinButton"), auth: $("#authDialog"), authForm: $("#authForm"),
   authMessage: $("#authMessage"), account: $("#accountButton"), signOut: $("#signOutButton"),
   complete: $("#completeButton"), toast: $("#toast"), install: $("#installButton")
@@ -123,7 +122,7 @@ function nextOccurrence(note, start = localDateString(), horizon = 365) {
   return null;
 }
 function typeLabel(type) {
-  return ({ task: "Дело", birthday: "День рождения", subscription: "Подписка", product: "Продукт" })[type] || "Дело";
+  return ({ task: "Дело", event: "Событие", birthday: "День рождения", subscription: "Подписка", product: "Продукт" })[type] || "Дело";
 }
 function expenseCategory(type) { return type === "subscription" ? "Подписки" : "Продукты"; }
 function formatMoney(value) { return `${new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(Number(value) || 0)} ₽`; }
@@ -139,7 +138,7 @@ function render() {
   const visible = notes
     .filter((n) => !n.deleted)
     .filter((n) => {
-      if (filter === "all" || filter === "expenses") return true;
+      if (filter === "all" || filter === "expenses" || filter === "purchases") return true;
       if (filter === "pinned") return n.pinned;
       if (filter === "upcoming") { const next = nextOccurrence(n, today, 30); return next && next >= today && next <= upcomingLimit; }
       return isDueToday(n, today);
@@ -161,22 +160,20 @@ function render() {
   const todayItems = alive.filter((n) => isDueToday(n, today));
   const upcomingItems = alive.filter((n) => { const next = nextOccurrence(n, today, 30); return next && next >= today && next <= upcomingLimit; });
   const spending = monthExpenses();
+  const productPurchases = expenses.filter((item) => !item.deleted && item.category === "Продукты");
   const totalSpend = spending.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const totals = spending.reduce((acc, item) => { acc[item.category] = (acc[item.category] || 0) + Number(item.amount || 0); return acc; }, {});
-  const topCategory = Object.entries(totals).sort((a, b) => b[1] - a[1])[0];
   els.todayCount.textContent = todayItems.length;
   els.upcomingCount.textContent = upcomingItems.length;
+  els.purchasesCount.textContent = new Set(productPurchases.map((item) => item.title.trim().toLowerCase())).size;
   els.allCount.textContent = alive.length;
   els.pinnedCount.textContent = alive.filter((n) => n.pinned).length;
-  els.summaryToday.textContent = todayItems.length;
-  els.summarySpend.textContent = formatMoney(totalSpend);
-  els.summaryTopCategory.textContent = topCategory ? `${topCategory[0]}: ${formatMoney(topCategory[1])}` : "пока без покупок";
-  els.summaryUpcoming.textContent = upcomingItems.length;
-  const expensesMode = filter === "expenses";
-  els.expensesView.classList.toggle("hidden", !expensesMode);
-  els.grid.classList.toggle("hidden", expensesMode || visible.length === 0);
-  els.empty.classList.toggle("hidden", expensesMode || visible.length > 0);
-  if (expensesMode) renderExpenses(spending, totals, totalSpend);
+  const specialMode = filter === "expenses" || filter === "purchases";
+  els.expensesView.classList.toggle("hidden", !specialMode);
+  els.grid.classList.toggle("hidden", specialMode || visible.length === 0);
+  els.empty.classList.toggle("hidden", specialMode || visible.length > 0);
+  if (filter === "expenses") renderExpenses(spending, totals, totalSpend);
+  if (filter === "purchases") renderPurchases(productPurchases);
 }
 
 function renderExpenses(spending, totals, totalSpend) {
@@ -188,6 +185,20 @@ function renderExpenses(spending, totals, totalSpend) {
   els.expensesView.innerHTML = `
     <div class="expense-total"><div><span>Потрачено за месяц</span><br><strong>${formatMoney(totalSpend)}</strong></div></div>
     ${spending.length ? `<div class="expense-bars">${bars}</div><div class="expense-list">${rows}</div>` : `<div class="empty-expenses">Здесь появятся оплаченные подписки и купленные продукты.</div>`}`;
+}
+
+function renderPurchases(productPurchases) {
+  const grouped = new Map();
+  productPurchases.forEach((item) => {
+    const key = item.title.trim().toLowerCase();
+    const current = grouped.get(key) || { title: item.title, count: 0, total: 0, last: item.spent_at };
+    current.count += 1; current.total += Number(item.amount || 0);
+    if (new Date(item.spent_at) > new Date(current.last)) current.last = item.spent_at;
+    grouped.set(key, current);
+  });
+  const cards = [...grouped.values()].sort((a, b) => new Date(b.last) - new Date(a.last)).map((item) => `
+    <article class="purchase-item"><strong>${escapeHtml(item.title)}</strong><span>Последняя покупка: ${new Date(item.last).toLocaleDateString("ru-RU")}</span><span>Куплено раз: ${item.count}</span><b>Всего ${formatMoney(item.total)}</b></article>`).join("");
+  els.expensesView.innerHTML = productPurchases.length ? `<div class="purchase-catalog">${cards}</div>` : `<div class="empty-expenses">Купленные продукты появятся здесь после нажатия «Куплено».</div>`;
 }
 
 function createNote() {
@@ -249,8 +260,7 @@ function updateTypeFields() {
 function applyTypeDefaults() {
   if (els.type.value === "birthday") { els.repeat.value = "yearly"; els.repeatInterval.value = 1; }
   if (els.type.value === "subscription") { els.repeat.value = "monthly"; els.repeatInterval.value = 1; }
-  if (els.type.value === "product" && els.repeat.value === "none") { els.repeat.value = "weekly"; els.repeatInterval.value = 1; }
-  if (els.type.value === "task") { els.amount.value = ""; }
+  if (els.type.value === "task" || els.type.value === "event" || els.type.value === "birthday") { els.amount.value = ""; }
   updateTypeFields(); flushEditor();
 }
 function debounceSave() { clearTimeout(saveTimer); saveTimer = setTimeout(flushEditor, 350); els.charCount.textContent = `${els.content.value.length} знаков`; }
@@ -271,12 +281,12 @@ function completeNote(id) {
   const occurrenceDate = occurrence || localDateString();
   note.completed_at = currentlyCompleted ? null : new Date().toISOString();
   note.updated_at = new Date().toISOString(); note.dirty = true;
-  if ((note.item_type === "product" || note.item_type === "subscription") && Number(note.amount) > 0) {
+  if (note.item_type === "product" || note.item_type === "subscription") {
     if (currentlyCompleted) {
       const expense = expenses.find((item) => item.item_id === note.id && item.occurrence_date === occurrenceDate && !item.deleted);
       if (expense) { expense.deleted = true; expense.dirty = true; expense.updated_at = new Date().toISOString(); }
     } else {
-      expenses.unshift({ id: crypto.randomUUID(), item_id: note.id, title: note.title || typeLabel(note.item_type), category: expenseCategory(note.item_type), amount: Number(note.amount), occurrence_date: occurrenceDate, spent_at: new Date().toISOString(), updated_at: new Date().toISOString(), deleted: false, dirty: true });
+      expenses.unshift({ id: crypto.randomUUID(), item_id: note.id, title: note.title || typeLabel(note.item_type), category: expenseCategory(note.item_type), amount: Number(note.amount) || 0, occurrence_date: occurrenceDate, spent_at: new Date().toISOString(), updated_at: new Date().toISOString(), deleted: false, dirty: true });
     }
     persistExpenses();
   }

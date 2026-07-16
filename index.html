@@ -31,10 +31,11 @@
             <h1>Всё важное.<br />Вовремя.</h1>
           </div>
           <nav class="filters" aria-label="Фильтры заметок">
-            <button class="filter active" data-filter="today" type="button"><span>Сегодня</span><b id="todayCount">0</b></button>
+            <button class="filter active" data-filter="today" type="button"><span>Главная</span><b id="todayCount">0</b></button>
             <button class="filter" data-filter="upcoming" type="button"><span>Предстоящее</span><b id="upcomingCount">0</b></button>
+            <button class="filter" data-filter="purchases" type="button"><span>Покупки</span><b id="purchasesCount">0</b></button>
             <button class="filter" data-filter="expenses" type="button"><span>Расходы</span><b>₽</b></button>
-            <button class="filter" data-filter="all" type="button"><span>Все заметки</span><b id="allCount">0</b></button>
+            <button class="filter" data-filter="all" type="button"><span>Все записи</span><b id="allCount">0</b></button>
             <button class="filter" data-filter="pinned" type="button"><span>Закреплённые</span><b id="pinnedCount">0</b></button>
           </nav>
           <div class="sidebar-note">
@@ -49,20 +50,14 @@
               <span aria-hidden="true">⌕</span>
               <input id="searchInput" type="search" placeholder="Найти заметку" autocomplete="off" />
             </label>
-            <button id="newNoteButton" class="button primary" type="button"><span>＋</span> Новая заметка</button>
-          </div>
-
-          <div class="summary-strip">
-            <div><span>Сегодня</span><strong id="summaryToday">0</strong><small>событий</small></div>
-            <div><span>Расходы в этом месяце</span><strong id="summarySpend">0 ₽</strong><small id="summaryTopCategory">пока без покупок</small></div>
-            <div><span>Скоро</span><strong id="summaryUpcoming">0</strong><small>в ближайшие 30 дней</small></div>
+            <button id="newNoteButton" class="button primary" type="button"><span>＋</span> Новая запись</button>
           </div>
 
           <div id="emptyState" class="empty-state hidden">
             <span class="empty-glyph">✦</span>
-            <h2>Здесь пока тихо</h2>
-            <p>Создайте первую заметку — она сохранится автоматически.</p>
-            <button id="emptyNewButton" class="button primary" type="button">Создать заметку</button>
+            <h2>Напоминаний нет</h2>
+            <p>Создайте дело, событие, день рождения или напоминание о продукте.</p>
+            <button id="emptyNewButton" class="button primary" type="button">Создать запись</button>
           </div>
           <div id="notesGrid" class="notes-grid" aria-live="polite"></div>
           <div id="expensesView" class="expenses-view hidden"></div>
@@ -84,6 +79,7 @@
         <span>Тип</span>
         <select id="itemType">
           <option value="task">Дело</option>
+          <option value="event">Событие</option>
           <option value="birthday">День рождения</option>
           <option value="subscription">Подписка</option>
           <option value="product">Продукт</option>

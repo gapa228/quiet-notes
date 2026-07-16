@@ -4,10 +4,13 @@ create table if not exists public.notes (
   user_id uuid not null references auth.users(id) on delete cascade,
   title text not null default '',
   content text not null default '',
+  due_date date,
   pinned boolean not null default false,
   deleted boolean not null default false,
   updated_at timestamptz not null default now()
 );
+
+alter table public.notes add column if not exists due_date date;
 
 create index if not exists notes_user_updated_idx on public.notes (user_id, updated_at desc);
 alter table public.notes enable row level security;

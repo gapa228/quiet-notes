@@ -4,9 +4,9 @@ const cloudEnabled = Boolean(config.supabaseUrl && config.supabaseAnonKey);
 const $ = (selector) => document.querySelector(selector);
 const els = {
   grid: $("#notesGrid"), empty: $("#emptyState"), search: $("#searchInput"),
-  allCount: $("#allCount"), pinnedCount: $("#pinnedCount"), sync: $("#syncStatus"),
+  todayCount: $("#todayCount"), allCount: $("#allCount"), pinnedCount: $("#pinnedCount"), sync: $("#syncStatus"),
   editor: $("#editor"), backdrop: $("#editorBackdrop"), title: $("#noteTitle"),
-  content: $("#noteContent"), charCount: $("#charCount"), editedAt: $("#editedAt"),
+  date: $("#noteDate"), content: $("#noteContent"), charCount: $("#charCount"), editedAt: $("#editedAt"),
   pin: $("#pinButton"), auth: $("#authDialog"), authForm: $("#authForm"),
   authMessage: $("#authMessage"), account: $("#accountButton"), signOut: $("#signOutButton"),
   toast: $("#toast"), install: $("#installButton")
@@ -14,7 +14,7 @@ const els = {
 
 let notes = loadNotes();
 let activeId = null;
-let filter = "all";
+let filter = "today";
 let saveTimer;
 let deferredInstall;
 let session = loadSession();
@@ -45,20 +45,34 @@ function formatDate(value) {
   if (date.toDateString() === today.toDateString()) return date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
   return date.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
 }
+function localDateString(date = new Date()) {
+  const offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+}
+function formatDueDate(value) {
+  if (!value) return "без даты";
+  const today = localDateString();
+  if (value === today) return "сегодня";
+  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+  if (value === localDateString(tomorrow)) return "завтра";
+  return new Date(`${value}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+}
 function render() {
   const query = els.search.value.trim().toLowerCase();
+  const today = localDateString();
   const visible = notes
     .filter((n) => !n.deleted)
-    .filter((n) => filter === "all" || n.pinned)
+    .filter((n) => filter === "all" || (filter === "pinned" ? n.pinned : n.due_date === today))
     .filter((n) => !query || `${n.title} ${n.content}`.toLowerCase().includes(query))
     .sort((a, b) => Number(b.pinned) - Number(a.pinned) || new Date(b.updated_at) - new Date(a.updated_at));
   els.grid.innerHTML = visible.map((note) => `
     <article class="note-card ${note.pinned ? "pinned" : ""}" data-id="${note.id}" tabindex="0">
       <h2>${escapeHtml(note.title || "Без названия")}</h2>
       <p>${escapeHtml(note.content || "Пустая заметка")}</p>
-      <div class="note-meta"><span>${note.pinned ? "закреплено" : "заметка"}</span><time>${formatDate(note.updated_at)}</time></div>
+      <div class="note-meta"><span>${note.pinned ? "закреплено · " : ""}${formatDueDate(note.due_date)}</span><time>${formatDate(note.updated_at)}</time></div>
     </article>`).join("");
   const alive = notes.filter((n) => !n.deleted);
+  els.todayCount.textContent = alive.filter((n) => n.due_date === today).length;
   els.allCount.textContent = alive.length;
   els.pinnedCount.textContent = alive.filter((n) => n.pinned).length;
   els.empty.classList.toggle("hidden", visible.length > 0);
@@ -67,7 +81,7 @@ function render() {
 
 function createNote() {
   const now = new Date().toISOString();
-  const note = { id: crypto.randomUUID(), title: "", content: "", pinned: false, updated_at: now, deleted: false, dirty: true };
+  const note = { id: crypto.randomUUID(), title: "", content: "", due_date: localDateString(), pinned: false, updated_at: now, deleted: false, dirty: true };
   notes.unshift(note); persistNotes(); render(); openEditor(note.id); scheduleSync();
   requestAnimationFrame(() => els.title.focus());
 }
@@ -76,6 +90,7 @@ function openEditor(id) {
   if (!note) return;
   activeId = id;
   els.title.value = note.title;
+  els.date.value = note.due_date || "";
   els.content.value = note.content;
   els.pin.classList.toggle("active", note.pinned);
   els.pin.textContent = note.pinned ? "◆" : "◇";
@@ -91,8 +106,8 @@ function closeEditor() {
 function flushEditor() {
   if (!activeId) return;
   const note = notes.find((n) => n.id === activeId);
-  if (!note || (note.title === els.title.value && note.content === els.content.value)) return;
-  note.title = els.title.value; note.content = els.content.value;
+  if (!note || (note.title === els.title.value && note.content === els.content.value && (note.due_date || "") === els.date.value)) return;
+  note.title = els.title.value; note.content = els.content.value; note.due_date = els.date.value || null;
   note.updated_at = new Date().toISOString(); note.dirty = true;
   persistNotes(); render(); updateEditorFooter(note); scheduleSync();
 }
@@ -190,7 +205,7 @@ document.addEventListener("click", (event) => {
 document.addEventListener("keydown", (event) => { if (event.key === "Escape" && activeId) closeEditor(); });
 $("#newNoteButton").addEventListener("click", createNote); $("#emptyNewButton").addEventListener("click", createNote);
 $("#closeEditorButton").addEventListener("click", closeEditor); els.backdrop.addEventListener("click", closeEditor);
-els.title.addEventListener("input", debounceSave); els.content.addEventListener("input", debounceSave);
+els.title.addEventListener("input", debounceSave); els.content.addEventListener("input", debounceSave); els.date.addEventListener("change", flushEditor);
 els.pin.addEventListener("click", togglePin); $("#deleteButton").addEventListener("click", deleteActive);
 els.search.addEventListener("input", render); els.account.addEventListener("click", () => { updateAccountUI(); els.auth.showModal(); });
 $("#closeAuthButton").addEventListener("click", () => els.auth.close());

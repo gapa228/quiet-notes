@@ -31,7 +31,8 @@
             <h1>Мысли,<br />которые остаются.</h1>
           </div>
           <nav class="filters" aria-label="Фильтры заметок">
-            <button class="filter active" data-filter="all" type="button"><span>Все заметки</span><b id="allCount">0</b></button>
+            <button class="filter active" data-filter="today" type="button"><span>Сегодня</span><b id="todayCount">0</b></button>
+            <button class="filter" data-filter="all" type="button"><span>Все заметки</span><b id="allCount">0</b></button>
             <button class="filter" data-filter="pinned" type="button"><span>Закреплённые</span><b id="pinnedCount">0</b></button>
           </nav>
           <div class="sidebar-note">
@@ -70,6 +71,10 @@
         </div>
       </div>
       <input id="noteTitle" class="note-title" type="text" placeholder="Без названия" maxlength="160" />
+      <label class="date-field">
+        <span>Когда</span>
+        <input id="noteDate" type="date" />
+      </label>
       <textarea id="noteContent" class="note-content" placeholder="Начните писать…"></textarea>
       <footer class="editor-footer">
         <span id="editedAt">Сохранено</span>

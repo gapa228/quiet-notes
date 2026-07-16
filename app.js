@@ -3,12 +3,14 @@ const cloudEnabled = Boolean(config.supabaseUrl && config.supabaseAnonKey);
 
 const $ = (selector) => document.querySelector(selector);
 const els = {
-  grid: $("#notesGrid"), empty: $("#emptyState"), search: $("#searchInput"),
+  grid: $("#notesGrid"), empty: $("#emptyState"), emptyTitle: $("#emptyTitle"), emptyText: $("#emptyText"), search: $("#searchInput"),
   todayCount: $("#todayCount"), upcomingCount: $("#upcomingCount"), purchasesCount: $("#purchasesCount"), allCount: $("#allCount"), pinnedCount: $("#pinnedCount"), sync: $("#syncStatus"),
   editor: $("#editor"), backdrop: $("#editorBackdrop"), title: $("#noteTitle"),
   type: $("#itemType"), date: $("#noteDate"), repeat: $("#repeatRule"), repeatInterval: $("#repeatInterval"), amount: $("#itemAmount"),
   content: $("#noteContent"), charCount: $("#charCount"), editedAt: $("#editedAt"), expensesView: $("#expensesView"),
   greeting: $("#greeting"), weekStrip: $("#weekStrip"), viewTitle: $("#viewTitle"),
+  menuButton: $("#menuButton"), appMenu: $("#appMenu"), menuBackdrop: $("#menuBackdrop"),
+  prevWeek: $("#prevWeekButton"), nextWeek: $("#nextWeekButton"),
   pin: $("#pinButton"), auth: $("#authDialog"), authForm: $("#authForm"),
   authMessage: $("#authMessage"), account: $("#accountButton"), signOut: $("#signOutButton"),
   complete: $("#completeButton"), toast: $("#toast"), install: $("#installButton")
@@ -18,6 +20,8 @@ let notes = loadNotes();
 let expenses = loadExpenses();
 let activeId = null;
 let filter = "today";
+let selectedDate = localDateString();
+let calendarStart = new Date(`${selectedDate}T12:00:00`);
 let saveTimer;
 let deferredInstall;
 let session = loadSession();
@@ -104,6 +108,14 @@ function isDueToday(note, today = localDateString()) {
   if ((note.repeat_rule || "none") === "none") return note.due_date <= today && !note.completed_at;
   return !isCompletedForOccurrence(note, occurrence);
 }
+function isDueOn(note, date) {
+  const today = localDateString();
+  if (date === today) return isDueToday(note, today);
+  const occurrence = occurrenceForDate(note, date);
+  if (!occurrence) return false;
+  if ((note.repeat_rule || "none") === "none") return note.due_date === date && !note.completed_at;
+  return !isCompletedForOccurrence(note, occurrence);
+}
 function repeatLabel(rule, interval = 1) {
   const number = Math.max(1, Number(interval) || 1);
   if (rule === "none" || !rule) return "";
@@ -138,12 +150,26 @@ function renderCalendarHeader() {
   const months = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
   const today = new Date();
   els.weekStrip.innerHTML = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(today); date.setDate(today.getDate() + index);
-    return `<div class="day-chip ${index === 0 ? "active" : ""}"><span>${index === 0 ? "Сегодня" : names[date.getDay()]}</span><strong>${date.getDate()}</strong><small>${months[date.getMonth()]}</small></div>`;
+    const date = new Date(calendarStart); date.setDate(calendarStart.getDate() + index);
+    const value = localDateString(date);
+    const isToday = value === localDateString(today);
+    return `<button class="day-chip ${value === selectedDate ? "active" : ""}" data-calendar-date="${value}" type="button"><span>${isToday ? "Сегодня" : names[date.getDay()]}</span><strong>${date.getDate()}</strong><small>${months[date.getMonth()]}</small></button>`;
   }).join("");
 }
 function updateViewTitle() {
-  els.viewTitle.textContent = ({ today: "Мои напоминания", upcoming: "Предстоящие события", purchases: "Мои покупки", expenses: "Расходы за месяц", all: "Все записи", pinned: "Важное" })[filter] || "Мои напоминания";
+  const date = new Date(`${selectedDate}T12:00:00`);
+  const dayName = date.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
+  const calendarTitle = selectedDate === localDateString() ? "Напоминания на сегодня" : dayName.charAt(0).toUpperCase() + dayName.slice(1);
+  els.viewTitle.textContent = ({ today: calendarTitle, upcoming: "Предстоящие события", purchases: "Мои покупки", expenses: "Расходы за месяц", all: "Все записи", pinned: "Важное" })[filter] || calendarTitle;
+}
+function setMenu(open) {
+  els.appMenu.classList.toggle("open", open);
+  els.menuBackdrop.classList.toggle("hidden", !open);
+  els.menuButton.setAttribute("aria-expanded", String(open));
+}
+function selectCalendarView() {
+  filter = "today";
+  document.querySelectorAll(".filter").forEach((button) => button.classList.toggle("active", button.dataset.filter === "today"));
 }
 function render() {
   const query = els.search.value.trim().toLowerCase();
@@ -156,7 +182,7 @@ function render() {
       if (filter === "all" || filter === "expenses" || filter === "purchases") return true;
       if (filter === "pinned") return n.pinned;
       if (filter === "upcoming") { const next = nextOccurrence(n, today, 30); return next && next >= today && next <= upcomingLimit; }
-      return isDueToday(n, today);
+      return isDueOn(n, selectedDate);
     })
     .filter((n) => !query || `${n.title} ${n.content}`.toLowerCase().includes(query))
     .sort((a, b) => {
@@ -165,7 +191,7 @@ function render() {
     });
   els.grid.innerHTML = visible.map((note) => `
     <article class="note-card ${note.pinned ? "pinned" : ""} ${note.completed_at && (note.repeat_rule || "none") === "none" ? "completed" : ""}" data-id="${note.id}" tabindex="0">
-      ${isDueToday(note, today) ? `<button class="card-complete" data-complete-id="${note.id}" type="button" aria-label="Выполнено">✓</button>` : ""}
+      ${selectedDate === today && isDueToday(note, today) ? `<button class="card-complete" data-complete-id="${note.id}" type="button" aria-label="Выполнено">✓</button>` : ""}
       <span class="type-badge">${typeLabel(note.item_type)}</span>
       <h2>${escapeHtml(note.title || "Без названия")}</h2>
       <p>${escapeHtml(note.content || "Пустая заметка")}</p>
@@ -187,6 +213,10 @@ function render() {
   els.expensesView.classList.toggle("hidden", !specialMode);
   els.grid.classList.toggle("hidden", specialMode || visible.length === 0);
   els.empty.classList.toggle("hidden", specialMode || visible.length > 0);
+  if (!specialMode && visible.length === 0) {
+    els.emptyTitle.textContent = selectedDate === today ? "На сегодня всё спокойно" : "На этот день ничего нет";
+    els.emptyText.textContent = `Можно создать новую запись на ${new Date(`${selectedDate}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}.`;
+  }
   if (filter === "expenses") renderExpenses(spending, totals, totalSpend);
   if (filter === "purchases") renderPurchases(productPurchases);
 }
@@ -218,7 +248,7 @@ function renderPurchases(productPurchases) {
 
 function createNote() {
   const now = new Date().toISOString();
-  const note = { id: crypto.randomUUID(), title: "", content: "", item_type: "task", amount: null, due_date: localDateString(), repeat_rule: "none", repeat_interval: 1, completed_at: null, pinned: false, updated_at: now, deleted: false, dirty: true };
+  const note = { id: crypto.randomUUID(), title: "", content: "", item_type: "task", amount: null, due_date: selectedDate, repeat_rule: "none", repeat_interval: 1, completed_at: null, pinned: false, updated_at: now, deleted: false, dirty: true };
   notes.unshift(note); persistNotes(); render(); openEditor(note.id); scheduleSync();
   requestAnimationFrame(() => els.title.focus());
 }
@@ -398,11 +428,16 @@ function signOut() { persistSession(null); notes = loadNotes(); expenses = loadE
 function showToast(message) { els.toast.textContent = message; els.toast.classList.remove("hidden"); setTimeout(() => els.toast.classList.add("hidden"), 2300); }
 
 document.addEventListener("click", (event) => {
+  const calendarDay = event.target.closest("[data-calendar-date]");
+  if (calendarDay) {
+    selectedDate = calendarDay.dataset.calendarDate; selectCalendarView();
+    renderCalendarHeader(); updateViewTitle(); render(); return;
+  }
   const complete = event.target.closest("[data-complete-id]");
   if (complete) { event.stopPropagation(); completeNote(complete.dataset.completeId); return; }
   const card = event.target.closest(".note-card"); if (card) openEditor(card.dataset.id);
   const filterButton = event.target.closest(".filter");
-  if (filterButton) { document.querySelectorAll(".filter").forEach((b) => b.classList.remove("active")); filterButton.classList.add("active"); filter = filterButton.dataset.filter; updateViewTitle(); render(); }
+  if (filterButton) { document.querySelectorAll(".filter").forEach((b) => b.classList.remove("active")); filterButton.classList.add("active"); filter = filterButton.dataset.filter; setMenu(false); updateViewTitle(); render(); }
 });
 document.addEventListener("keydown", (event) => { if (event.key === "Escape" && activeId) closeEditor(); });
 $("#newNoteButton").addEventListener("click", createNote); $("#emptyNewButton").addEventListener("click", createNote);
@@ -415,6 +450,10 @@ els.search.addEventListener("input", render); els.account.addEventListener("clic
 $("#closeAuthButton").addEventListener("click", () => els.auth.close());
 els.authForm.addEventListener("submit", (event) => { event.preventDefault(); authenticate("signin"); });
 $("#signUpButton").addEventListener("click", () => authenticate("signup")); els.signOut.addEventListener("click", signOut);
+els.menuButton.addEventListener("click", () => setMenu(!els.appMenu.classList.contains("open")));
+els.menuBackdrop.addEventListener("click", () => setMenu(false));
+els.prevWeek.addEventListener("click", () => { calendarStart.setDate(calendarStart.getDate() - 7); selectedDate = localDateString(calendarStart); selectCalendarView(); renderCalendarHeader(); updateViewTitle(); render(); });
+els.nextWeek.addEventListener("click", () => { calendarStart.setDate(calendarStart.getDate() + 7); selectedDate = localDateString(calendarStart); selectCalendarView(); renderCalendarHeader(); updateViewTitle(); render(); });
 window.addEventListener("online", syncNotes); window.addEventListener("offline", updateSyncStatus);
 window.addEventListener("beforeinstallprompt", (event) => { event.preventDefault(); deferredInstall = event; els.install.classList.remove("hidden"); });
 els.install.addEventListener("click", async () => { if (!deferredInstall) return; deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall = null; els.install.classList.add("hidden"); });

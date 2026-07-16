@@ -8,6 +8,7 @@ const els = {
   editor: $("#editor"), backdrop: $("#editorBackdrop"), title: $("#noteTitle"),
   type: $("#itemType"), date: $("#noteDate"), repeat: $("#repeatRule"), repeatInterval: $("#repeatInterval"), amount: $("#itemAmount"),
   content: $("#noteContent"), charCount: $("#charCount"), editedAt: $("#editedAt"), expensesView: $("#expensesView"),
+  greeting: $("#greeting"), weekStrip: $("#weekStrip"), viewTitle: $("#viewTitle"),
   pin: $("#pinButton"), auth: $("#authDialog"), authForm: $("#authForm"),
   authMessage: $("#authMessage"), account: $("#accountButton"), signOut: $("#signOutButton"),
   complete: $("#completeButton"), toast: $("#toast"), install: $("#installButton")
@@ -129,6 +130,20 @@ function formatMoney(value) { return `${new Intl.NumberFormat("ru-RU", { maximum
 function monthExpenses() {
   const prefix = localDateString().slice(0, 7);
   return expenses.filter((item) => !item.deleted && item.spent_at.slice(0, 7) === prefix);
+}
+function renderCalendarHeader() {
+  const hour = new Date().getHours();
+  els.greeting.textContent = hour < 6 ? "Доброй ночи!" : hour < 12 ? "Доброе утро! 👋" : hour < 18 ? "Добрый день! 👋" : "Добрый вечер! 👋";
+  const names = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+  const months = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+  const today = new Date();
+  els.weekStrip.innerHTML = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(today); date.setDate(today.getDate() + index);
+    return `<div class="day-chip ${index === 0 ? "active" : ""}"><span>${index === 0 ? "Сегодня" : names[date.getDay()]}</span><strong>${date.getDate()}</strong><small>${months[date.getMonth()]}</small></div>`;
+  }).join("");
+}
+function updateViewTitle() {
+  els.viewTitle.textContent = ({ today: "Мои напоминания", upcoming: "Предстоящие события", purchases: "Мои покупки", expenses: "Расходы за месяц", all: "Все записи", pinned: "Важное" })[filter] || "Мои напоминания";
 }
 function render() {
   const query = els.search.value.trim().toLowerCase();
@@ -387,7 +402,7 @@ document.addEventListener("click", (event) => {
   if (complete) { event.stopPropagation(); completeNote(complete.dataset.completeId); return; }
   const card = event.target.closest(".note-card"); if (card) openEditor(card.dataset.id);
   const filterButton = event.target.closest(".filter");
-  if (filterButton) { document.querySelectorAll(".filter").forEach((b) => b.classList.remove("active")); filterButton.classList.add("active"); filter = filterButton.dataset.filter; render(); }
+  if (filterButton) { document.querySelectorAll(".filter").forEach((b) => b.classList.remove("active")); filterButton.classList.add("active"); filter = filterButton.dataset.filter; updateViewTitle(); render(); }
 });
 document.addEventListener("keydown", (event) => { if (event.key === "Escape" && activeId) closeEditor(); });
 $("#newNoteButton").addEventListener("click", createNote); $("#emptyNewButton").addEventListener("click", createNote);
@@ -405,4 +420,4 @@ window.addEventListener("beforeinstallprompt", (event) => { event.preventDefault
 els.install.addEventListener("click", async () => { if (!deferredInstall) return; deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall = null; els.install.classList.add("hidden"); });
 
 if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js"));
-updateAccountUI(); render(); if (session) syncNotes();
+renderCalendarHeader(); updateViewTitle(); updateAccountUI(); render(); if (session) syncNotes();

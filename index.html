@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#f5f1e8" />
+    <meta name="theme-color" content="#0a0b24" />
     <meta name="description" content="Личный ежедневник: дела, дни рождения, подписки, покупки и расходы" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
@@ -14,7 +14,7 @@
     <div class="app-shell">
       <header class="topbar">
         <a class="brand" href="#" aria-label="Тихий ежедневник">
-          <span class="brand-mark">т.</span>
+          <span class="brand-mark">☰</span>
           <span>тихий ежедневник</span>
         </a>
         <div class="top-actions">
@@ -27,8 +27,10 @@
       <main class="workspace">
         <aside class="sidebar">
           <div class="sidebar-heading">
-            <p class="eyebrow">Ваше пространство</p>
-            <h1>Всё важное.<br />Вовремя.</h1>
+            <p id="greeting" class="eyebrow">Доброе утро!</p>
+            <h1>Ваш день<br />под контролем.</h1>
+            <p class="hero-quote">«Фокус на важном — путь к результату»</p>
+            <div id="weekStrip" class="week-strip" aria-label="Дни недели"></div>
           </div>
           <nav class="filters" aria-label="Фильтры заметок">
             <button class="filter active" data-filter="today" type="button"><span>Главная</span><b id="todayCount">0</b></button>
@@ -46,11 +48,12 @@
 
         <section class="content">
           <div class="content-toolbar">
+            <h2 id="viewTitle">Мои напоминания</h2>
             <label class="search">
               <span aria-hidden="true">⌕</span>
               <input id="searchInput" type="search" placeholder="Найти заметку" autocomplete="off" />
             </label>
-            <button id="newNoteButton" class="button primary" type="button"><span>＋</span> Новая запись</button>
+            <button id="newNoteButton" class="button primary" type="button"><span>＋</span><em>Новая запись</em></button>
           </div>
 
           <div id="emptyState" class="empty-state hidden">

@@ -6,10 +6,10 @@ const els = {
   grid: $("#notesGrid"), empty: $("#emptyState"), search: $("#searchInput"),
   todayCount: $("#todayCount"), allCount: $("#allCount"), pinnedCount: $("#pinnedCount"), sync: $("#syncStatus"),
   editor: $("#editor"), backdrop: $("#editorBackdrop"), title: $("#noteTitle"),
-  date: $("#noteDate"), content: $("#noteContent"), charCount: $("#charCount"), editedAt: $("#editedAt"),
+  date: $("#noteDate"), repeat: $("#repeatRule"), content: $("#noteContent"), charCount: $("#charCount"), editedAt: $("#editedAt"),
   pin: $("#pinButton"), auth: $("#authDialog"), authForm: $("#authForm"),
   authMessage: $("#authMessage"), account: $("#accountButton"), signOut: $("#signOutButton"),
-  toast: $("#toast"), install: $("#installButton")
+  complete: $("#completeButton"), toast: $("#toast"), install: $("#installButton")
 };
 
 let notes = loadNotes();
@@ -57,22 +57,56 @@ function formatDueDate(value) {
   if (value === localDateString(tomorrow)) return "завтра";
   return new Date(`${value}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
 }
+function daysInMonth(year, month) { return new Date(year, month + 1, 0).getDate(); }
+function occurrenceForToday(note, today = localDateString()) {
+  if (!note.due_date || note.due_date > today) return null;
+  const rule = note.repeat_rule || "none";
+  if (rule === "none") return note.due_date;
+  const base = new Date(`${note.due_date}T12:00:00`);
+  const now = new Date(`${today}T12:00:00`);
+  if (rule === "daily") return today;
+  if (rule === "weekly") return base.getDay() === now.getDay() ? today : null;
+  if (rule === "monthly") {
+    const expected = Math.min(base.getDate(), daysInMonth(now.getFullYear(), now.getMonth()));
+    return now.getDate() === expected ? today : null;
+  }
+  if (rule === "yearly") {
+    const expectedDay = Math.min(base.getDate(), daysInMonth(now.getFullYear(), base.getMonth()));
+    return now.getMonth() === base.getMonth() && now.getDate() === expectedDay ? today : null;
+  }
+  return null;
+}
+function isCompletedForOccurrence(note, occurrence) {
+  if (!note.completed_at) return false;
+  if ((note.repeat_rule || "none") === "none") return true;
+  return localDateString(new Date(note.completed_at)) >= occurrence;
+}
+function isDueToday(note, today = localDateString()) {
+  const occurrence = occurrenceForToday(note, today);
+  if (!occurrence) return false;
+  if ((note.repeat_rule || "none") === "none") return note.due_date <= today && !note.completed_at;
+  return !isCompletedForOccurrence(note, occurrence);
+}
+function repeatLabel(rule) {
+  return ({ daily: "каждый день", weekly: "каждую неделю", monthly: "каждый месяц", yearly: "каждый год" })[rule] || "";
+}
 function render() {
   const query = els.search.value.trim().toLowerCase();
   const today = localDateString();
   const visible = notes
     .filter((n) => !n.deleted)
-    .filter((n) => filter === "all" || (filter === "pinned" ? n.pinned : n.due_date === today))
+    .filter((n) => filter === "all" || (filter === "pinned" ? n.pinned : isDueToday(n, today)))
     .filter((n) => !query || `${n.title} ${n.content}`.toLowerCase().includes(query))
     .sort((a, b) => Number(b.pinned) - Number(a.pinned) || new Date(b.updated_at) - new Date(a.updated_at));
   els.grid.innerHTML = visible.map((note) => `
-    <article class="note-card ${note.pinned ? "pinned" : ""}" data-id="${note.id}" tabindex="0">
+    <article class="note-card ${note.pinned ? "pinned" : ""} ${note.completed_at && (note.repeat_rule || "none") === "none" ? "completed" : ""}" data-id="${note.id}" tabindex="0">
+      ${isDueToday(note, today) ? `<button class="card-complete" data-complete-id="${note.id}" type="button" aria-label="Выполнено">✓</button>` : ""}
       <h2>${escapeHtml(note.title || "Без названия")}</h2>
       <p>${escapeHtml(note.content || "Пустая заметка")}</p>
-      <div class="note-meta"><span>${note.pinned ? "закреплено · " : ""}${formatDueDate(note.due_date)}</span><time>${formatDate(note.updated_at)}</time></div>
+      <div class="note-meta"><span>${note.pinned ? "закреплено · " : ""}${repeatLabel(note.repeat_rule) || formatDueDate(note.due_date)}</span><time>${formatDate(note.updated_at)}</time></div>
     </article>`).join("");
   const alive = notes.filter((n) => !n.deleted);
-  els.todayCount.textContent = alive.filter((n) => n.due_date === today).length;
+  els.todayCount.textContent = alive.filter((n) => isDueToday(n, today)).length;
   els.allCount.textContent = alive.length;
   els.pinnedCount.textContent = alive.filter((n) => n.pinned).length;
   els.empty.classList.toggle("hidden", visible.length > 0);
@@ -81,7 +115,7 @@ function render() {
 
 function createNote() {
   const now = new Date().toISOString();
-  const note = { id: crypto.randomUUID(), title: "", content: "", due_date: localDateString(), pinned: false, updated_at: now, deleted: false, dirty: true };
+  const note = { id: crypto.randomUUID(), title: "", content: "", due_date: localDateString(), repeat_rule: "none", completed_at: null, pinned: false, updated_at: now, deleted: false, dirty: true };
   notes.unshift(note); persistNotes(); render(); openEditor(note.id); scheduleSync();
   requestAnimationFrame(() => els.title.focus());
 }
@@ -91,9 +125,11 @@ function openEditor(id) {
   activeId = id;
   els.title.value = note.title;
   els.date.value = note.due_date || "";
+  els.repeat.value = note.repeat_rule || "none";
   els.content.value = note.content;
   els.pin.classList.toggle("active", note.pinned);
   els.pin.textContent = note.pinned ? "◆" : "◇";
+  updateCompleteButton(note);
   updateEditorFooter(note);
   els.editor.classList.remove("hidden"); els.backdrop.classList.remove("hidden");
   document.body.style.overflow = "hidden";
@@ -106,14 +142,20 @@ function closeEditor() {
 function flushEditor() {
   if (!activeId) return;
   const note = notes.find((n) => n.id === activeId);
-  if (!note || (note.title === els.title.value && note.content === els.content.value && (note.due_date || "") === els.date.value)) return;
-  note.title = els.title.value; note.content = els.content.value; note.due_date = els.date.value || null;
+  if (!note || (note.title === els.title.value && note.content === els.content.value && (note.due_date || "") === els.date.value && (note.repeat_rule || "none") === els.repeat.value)) return;
+  note.title = els.title.value; note.content = els.content.value; note.due_date = els.date.value || null; note.repeat_rule = els.repeat.value;
   note.updated_at = new Date().toISOString(); note.dirty = true;
   persistNotes(); render(); updateEditorFooter(note); scheduleSync();
 }
 function updateEditorFooter(note) {
   els.charCount.textContent = `${note.content.length} знаков`;
   els.editedAt.textContent = `Сохранено ${formatDate(note.updated_at)}`;
+}
+function updateCompleteButton(note) {
+  const occurrence = occurrenceForToday(note);
+  const completed = Boolean(note.completed_at && ((note.repeat_rule || "none") === "none" || (occurrence && isCompletedForOccurrence(note, occurrence))));
+  els.complete.textContent = completed ? "↶ Вернуть в работу" : "✓ Отметить выполненным";
+  els.complete.classList.toggle("completed", completed);
 }
 function debounceSave() { clearTimeout(saveTimer); saveTimer = setTimeout(flushEditor, 350); els.charCount.textContent = `${els.content.value.length} знаков`; }
 function togglePin() {
@@ -125,6 +167,15 @@ function deleteActive() {
   const note = notes.find((n) => n.id === activeId); if (!note) return;
   note.deleted = true; note.updated_at = new Date().toISOString(); note.dirty = true;
   persistNotes(); closeEditor(); render(); scheduleSync(); showToast("Заметка удалена");
+}
+function completeNote(id) {
+  const note = notes.find((n) => n.id === id); if (!note) return;
+  const occurrence = occurrenceForToday(note);
+  const currentlyCompleted = note.completed_at && ((note.repeat_rule || "none") === "none" || (occurrence && isCompletedForOccurrence(note, occurrence)));
+  note.completed_at = currentlyCompleted ? null : new Date().toISOString();
+  note.updated_at = new Date().toISOString(); note.dirty = true;
+  persistNotes(); render(); if (activeId === id) updateCompleteButton(note); scheduleSync();
+  showToast(currentlyCompleted ? "Задача снова активна" : ((note.repeat_rule || "none") === "none" ? "Выполнено" : "Готово до следующего повтора"));
 }
 
 function api(path, options = {}, withAuth = false) {
@@ -198,6 +249,8 @@ function signOut() { persistSession(null); notes = loadNotes(); els.auth.close()
 function showToast(message) { els.toast.textContent = message; els.toast.classList.remove("hidden"); setTimeout(() => els.toast.classList.add("hidden"), 2300); }
 
 document.addEventListener("click", (event) => {
+  const complete = event.target.closest("[data-complete-id]");
+  if (complete) { event.stopPropagation(); completeNote(complete.dataset.completeId); return; }
   const card = event.target.closest(".note-card"); if (card) openEditor(card.dataset.id);
   const filterButton = event.target.closest(".filter");
   if (filterButton) { document.querySelectorAll(".filter").forEach((b) => b.classList.remove("active")); filterButton.classList.add("active"); filter = filterButton.dataset.filter; render(); }
@@ -205,8 +258,9 @@ document.addEventListener("click", (event) => {
 document.addEventListener("keydown", (event) => { if (event.key === "Escape" && activeId) closeEditor(); });
 $("#newNoteButton").addEventListener("click", createNote); $("#emptyNewButton").addEventListener("click", createNote);
 $("#closeEditorButton").addEventListener("click", closeEditor); els.backdrop.addEventListener("click", closeEditor);
-els.title.addEventListener("input", debounceSave); els.content.addEventListener("input", debounceSave); els.date.addEventListener("change", flushEditor);
+els.title.addEventListener("input", debounceSave); els.content.addEventListener("input", debounceSave); els.date.addEventListener("change", flushEditor); els.repeat.addEventListener("change", flushEditor);
 els.pin.addEventListener("click", togglePin); $("#deleteButton").addEventListener("click", deleteActive);
+els.complete.addEventListener("click", () => completeNote(activeId));
 els.search.addEventListener("input", render); els.account.addEventListener("click", () => { updateAccountUI(); els.auth.showModal(); });
 $("#closeAuthButton").addEventListener("click", () => els.auth.close());
 els.authForm.addEventListener("submit", (event) => { event.preventDefault(); authenticate("signin"); });

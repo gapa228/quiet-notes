@@ -5,12 +5,16 @@ create table if not exists public.notes (
   title text not null default '',
   content text not null default '',
   due_date date,
+  repeat_rule text not null default 'none',
+  completed_at timestamptz,
   pinned boolean not null default false,
   deleted boolean not null default false,
   updated_at timestamptz not null default now()
 );
 
 alter table public.notes add column if not exists due_date date;
+alter table public.notes add column if not exists repeat_rule text not null default 'none';
+alter table public.notes add column if not exists completed_at timestamptz;
 
 create index if not exists notes_user_updated_idx on public.notes (user_id, updated_at desc);
 alter table public.notes enable row level security;

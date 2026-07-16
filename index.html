@@ -4,18 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#f5f1e8" />
-    <meta name="description" content="Личные заметки с синхронизацией между компьютером и телефоном" />
+    <meta name="description" content="Личный ежедневник: дела, дни рождения, подписки, покупки и расходы" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css" />
-    <title>Тихие заметки</title>
+    <title>Тихий ежедневник</title>
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
-        <a class="brand" href="#" aria-label="Тихие заметки">
+        <a class="brand" href="#" aria-label="Тихий ежедневник">
           <span class="brand-mark">т.</span>
-          <span>тихие заметки</span>
+          <span>тихий ежедневник</span>
         </a>
         <div class="top-actions">
           <span id="syncStatus" class="sync-status" aria-live="polite">локально</span>
@@ -28,16 +28,18 @@
         <aside class="sidebar">
           <div class="sidebar-heading">
             <p class="eyebrow">Ваше пространство</p>
-            <h1>Мысли,<br />которые остаются.</h1>
+            <h1>Всё важное.<br />Вовремя.</h1>
           </div>
           <nav class="filters" aria-label="Фильтры заметок">
             <button class="filter active" data-filter="today" type="button"><span>Сегодня</span><b id="todayCount">0</b></button>
+            <button class="filter" data-filter="upcoming" type="button"><span>Предстоящее</span><b id="upcomingCount">0</b></button>
+            <button class="filter" data-filter="expenses" type="button"><span>Расходы</span><b>₽</b></button>
             <button class="filter" data-filter="all" type="button"><span>Все заметки</span><b id="allCount">0</b></button>
             <button class="filter" data-filter="pinned" type="button"><span>Закреплённые</span><b id="pinnedCount">0</b></button>
           </nav>
           <div class="sidebar-note">
             <span class="dot"></span>
-            <p>Записи сохраняются автоматически на этом устройстве.</p>
+            <p>Дела и расходы сохраняются автоматически на этом устройстве.</p>
           </div>
         </aside>
 
@@ -50,6 +52,12 @@
             <button id="newNoteButton" class="button primary" type="button"><span>＋</span> Новая заметка</button>
           </div>
 
+          <div class="summary-strip">
+            <div><span>Сегодня</span><strong id="summaryToday">0</strong><small>событий</small></div>
+            <div><span>Расходы в этом месяце</span><strong id="summarySpend">0 ₽</strong><small id="summaryTopCategory">пока без покупок</small></div>
+            <div><span>Скоро</span><strong id="summaryUpcoming">0</strong><small>в ближайшие 30 дней</small></div>
+          </div>
+
           <div id="emptyState" class="empty-state hidden">
             <span class="empty-glyph">✦</span>
             <h2>Здесь пока тихо</h2>
@@ -57,6 +65,7 @@
             <button id="emptyNewButton" class="button primary" type="button">Создать заметку</button>
           </div>
           <div id="notesGrid" class="notes-grid" aria-live="polite"></div>
+          <div id="expensesView" class="expenses-view hidden"></div>
         </section>
       </main>
     </div>
@@ -72,18 +81,33 @@
       </div>
       <input id="noteTitle" class="note-title" type="text" placeholder="Без названия" maxlength="160" />
       <label class="date-field">
+        <span>Тип</span>
+        <select id="itemType">
+          <option value="task">Дело</option>
+          <option value="birthday">День рождения</option>
+          <option value="subscription">Подписка</option>
+          <option value="product">Продукт</option>
+        </select>
+      </label>
+      <label class="date-field">
         <span>Когда</span>
         <input id="noteDate" type="date" />
       </label>
       <label class="date-field">
         <span>Повторять</span>
+        <input id="repeatInterval" type="number" min="1" max="99" value="1" aria-label="Интервал повторения" />
         <select id="repeatRule">
           <option value="none">Не повторять</option>
-          <option value="daily">Каждый день</option>
-          <option value="weekly">Каждую неделю</option>
-          <option value="monthly">Каждый месяц</option>
-          <option value="yearly">Каждый год</option>
+          <option value="daily">День</option>
+          <option value="weekly">Неделю</option>
+          <option value="monthly">Месяц</option>
+          <option value="yearly">Год</option>
         </select>
+      </label>
+      <label class="date-field price-field">
+        <span>Стоимость</span>
+        <input id="itemAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" />
+        <b>₽</b>
       </label>
       <textarea id="noteContent" class="note-content" placeholder="Начните писать…"></textarea>
       <footer class="editor-footer">

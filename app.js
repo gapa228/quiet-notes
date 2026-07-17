@@ -5,6 +5,7 @@ const $ = (selector) => document.querySelector(selector);
 const els = {
   grid: $("#notesGrid"), empty: $("#emptyState"), emptyTitle: $("#emptyTitle"), emptyText: $("#emptyText"), search: $("#searchInput"),
   advanceSection: $("#advanceSection"), advanceGrid: $("#advanceGrid"),
+  shoppingSection: $("#shoppingSection"), shoppingList: $("#shoppingList"), shoppingProgressText: $("#shoppingProgressText"), shoppingProgressBar: $("#shoppingProgressBar"),
   todayCount: $("#todayCount"), upcomingCount: $("#upcomingCount"), purchasesCount: $("#purchasesCount"), allCount: $("#allCount"), pinnedCount: $("#pinnedCount"), sync: $("#syncStatus"),
   editor: $("#editor"), backdrop: $("#editorBackdrop"), title: $("#noteTitle"),
   type: $("#itemType"), date: $("#noteDate"), repeat: $("#repeatRule"), repeatInterval: $("#repeatInterval"), remindDays: $("#remindDaysBefore"), amount: $("#itemAmount"),
@@ -134,6 +135,22 @@ function daysUntilLabel(from, until) {
   const ending = days % 10 === 1 && days % 100 !== 11 ? "день" : [2, 3, 4].includes(days % 10) && ![12, 13, 14].includes(days % 100) ? "дня" : "дней";
   return `Через ${days} ${ending}`;
 }
+function shoppingItemsForDate(date) {
+  const today = localDateString();
+  return notes.filter((note) => !note.deleted && note.item_type === "product").map((note) => {
+    const rule = note.repeat_rule || "none";
+    if (rule !== "none") {
+      const occurrence = occurrenceForDate(note, date);
+      return occurrence ? { note, occurrence, completed: isCompletedForOccurrence(note, occurrence) } : null;
+    }
+    if (note.completed_at) {
+      const purchasedOn = localDateString(new Date(note.completed_at));
+      return purchasedOn === date ? { note, occurrence: note.due_date || date, completed: true } : null;
+    }
+    const scheduled = !note.due_date ? date === today : (date === today ? note.due_date <= date : note.due_date === date);
+    return scheduled ? { note, occurrence: note.due_date || date, completed: false } : null;
+  }).filter(Boolean).sort((a, b) => Number(a.completed) - Number(b.completed) || (a.note.title || "").localeCompare(b.note.title || "", "ru"));
+}
 function repeatLabel(rule, interval = 1) {
   const number = Math.max(1, Number(interval) || 1);
   if (rule === "none" || !rule) return "";
@@ -200,6 +217,7 @@ function render() {
       if (filter === "all" || filter === "expenses" || filter === "purchases") return true;
       if (filter === "pinned") return n.pinned;
       if (filter === "upcoming") { const next = nextOccurrence(n, today, 30); return next && next >= today && next <= upcomingLimit; }
+      if (n.item_type === "product") return false;
       return isDueOn(n, selectedDate);
     })
     .filter((n) => !query || `${n.title} ${n.content}`.toLowerCase().includes(query))
@@ -219,6 +237,19 @@ function render() {
       <p>${escapeHtml(note.content || "Пустая заметка")}</p>
       <div class="note-meta"><span>Событие ${new Date(`${occurrence}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}</span><time>${note.amount ? formatMoney(note.amount) : `за ${note.remind_days_before} дн.`}</time></div>
     </article>`).join("");
+  const shoppingItems = filter === "today" ? shoppingItemsForDate(selectedDate)
+    .filter(({ note }) => !query || `${note.title} ${note.content}`.toLowerCase().includes(query)) : [];
+  const canBuy = selectedDate === today;
+  els.shoppingList.innerHTML = shoppingItems.length ? shoppingItems.map(({ note, completed }) => `
+    <div class="shopping-row ${completed ? "bought" : ""}">
+      <button class="shopping-check" data-buy-id="${note.id}" type="button" aria-label="${completed ? "Отменить покупку" : "Куплено"}" ${canBuy ? "" : "disabled"}>${completed ? "✓" : ""}</button>
+      <button class="shopping-name" data-shopping-edit="${note.id}" type="button">${escapeHtml(note.title || "Новый продукт")}</button>
+      ${note.amount ? `<span>${formatMoney(note.amount)}</span>` : ""}
+      <button class="shopping-edit" data-shopping-edit="${note.id}" type="button" aria-label="Изменить">≡</button>
+    </div>`).join("") : `<p class="shopping-empty">Добавьте продукты, которые нужно купить.</p>`;
+  const boughtCount = shoppingItems.filter((item) => item.completed).length;
+  els.shoppingProgressText.textContent = shoppingItems.length ? `${boughtCount} из ${shoppingItems.length} куплено` : "Список пуст";
+  els.shoppingProgressBar.style.width = `${shoppingItems.length ? Math.round(boughtCount / shoppingItems.length * 100) : 0}%`;
   els.grid.innerHTML = visible.map((note) => `
     <article class="note-card ${note.pinned ? "pinned" : ""} ${note.completed_at && (note.repeat_rule || "none") === "none" ? "completed" : ""}" data-id="${note.id}" tabindex="0">
       ${selectedDate === today && isDueToday(note, today) ? `<button class="card-complete" data-complete-id="${note.id}" type="button" aria-label="Выполнено">✓</button>` : ""}
@@ -243,10 +274,12 @@ function render() {
   const specialMode = filter === "expenses" || filter === "purchases";
   const hasAdvanceItems = advanceItems.length > 0;
   els.advanceSection.classList.toggle("hidden", !hasAdvanceItems);
+  const hasShoppingItems = shoppingItems.length > 0;
+  els.shoppingSection.classList.toggle("hidden", filter !== "today");
   els.expensesView.classList.toggle("hidden", !specialMode);
   els.grid.classList.toggle("hidden", specialMode || visible.length === 0);
-  els.empty.classList.toggle("hidden", specialMode || visible.length > 0 || hasAdvanceItems);
-  if (!specialMode && visible.length === 0 && !hasAdvanceItems) {
+  els.empty.classList.toggle("hidden", specialMode || visible.length > 0 || hasAdvanceItems || hasShoppingItems);
+  if (!specialMode && visible.length === 0 && !hasAdvanceItems && !hasShoppingItems) {
     els.emptyTitle.textContent = selectedDate === today ? "На сегодня всё спокойно" : "На этот день ничего нет";
     els.emptyText.textContent = `Можно создать новую запись на ${new Date(`${selectedDate}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}.`;
   }
@@ -279,9 +312,9 @@ function renderPurchases(productPurchases) {
   els.expensesView.innerHTML = productPurchases.length ? `<div class="purchase-catalog">${cards}</div>` : `<div class="empty-expenses">Купленные продукты появятся здесь после нажатия «Куплено».</div>`;
 }
 
-function createNote() {
+function createNote(initialType = "task") {
   const now = new Date().toISOString();
-  const note = { id: crypto.randomUUID(), title: "", content: "", item_type: "task", amount: null, due_date: selectedDate, repeat_rule: "none", repeat_interval: 1, remind_days_before: 0, completed_at: null, pinned: false, updated_at: now, deleted: false, dirty: true };
+  const note = { id: crypto.randomUUID(), title: "", content: "", item_type: initialType, amount: null, due_date: selectedDate, repeat_rule: "none", repeat_interval: 1, remind_days_before: 0, completed_at: null, pinned: false, updated_at: now, deleted: false, dirty: true };
   notes.unshift(note); persistNotes(); render(); openEditor(note.id); scheduleSync();
   requestAnimationFrame(() => els.title.focus());
 }
@@ -470,12 +503,17 @@ document.addEventListener("click", (event) => {
   }
   const complete = event.target.closest("[data-complete-id]");
   if (complete) { event.stopPropagation(); completeNote(complete.dataset.completeId); return; }
+  const buy = event.target.closest("[data-buy-id]");
+  if (buy) { event.stopPropagation(); completeNote(buy.dataset.buyId); return; }
+  const shoppingEdit = event.target.closest("[data-shopping-edit]");
+  if (shoppingEdit) { openEditor(shoppingEdit.dataset.shoppingEdit); return; }
   const card = event.target.closest(".note-card"); if (card) openEditor(card.dataset.id);
   const filterButton = event.target.closest(".filter");
   if (filterButton) { document.querySelectorAll(".filter").forEach((b) => b.classList.remove("active")); filterButton.classList.add("active"); filter = filterButton.dataset.filter; setMenu(false); updateViewTitle(); render(); }
 });
 document.addEventListener("keydown", (event) => { if (event.key === "Escape" && activeId) closeEditor(); });
-$("#newNoteButton").addEventListener("click", createNote); $("#emptyNewButton").addEventListener("click", createNote);
+$("#newNoteButton").addEventListener("click", () => createNote()); $("#emptyNewButton").addEventListener("click", () => createNote());
+$("#addShoppingItem").addEventListener("click", () => createNote("product"));
 $("#closeEditorButton").addEventListener("click", closeEditor); els.backdrop.addEventListener("click", closeEditor);
 els.title.addEventListener("input", debounceSave); els.content.addEventListener("input", debounceSave); els.date.addEventListener("change", flushEditor);
 els.repeat.addEventListener("change", flushEditor); els.repeatInterval.addEventListener("change", flushEditor); els.remindDays.addEventListener("input", debounceSave); els.amount.addEventListener("input", debounceSave); els.type.addEventListener("change", applyTypeDefaults);

@@ -16,6 +16,7 @@ const els = {
   prevWeek: $("#prevWeekButton"), nextWeek: $("#nextWeekButton"),
   pin: $("#pinButton"), auth: $("#authDialog"), authForm: $("#authForm"),
   authMessage: $("#authMessage"), account: $("#accountButton"), signOut: $("#signOutButton"),
+  purchaseDialog: $("#purchaseDialog"), purchaseForm: $("#purchaseForm"), purchaseTitle: $("#purchaseTitle"), purchaseDate: $("#purchaseDate"), purchaseQuantity: $("#purchaseQuantity"), purchaseAmount: $("#purchaseAmount"), purchaseFormMessage: $("#purchaseFormMessage"),
   complete: $("#completeButton"), toast: $("#toast"), install: $("#installButton")
 };
 
@@ -410,7 +411,45 @@ function renderPurchases(productPurchases) {
   });
   const cards = [...grouped.values()].sort((a, b) => new Date(b.last) - new Date(a.last)).map((item) => `
     <article class="purchase-item"><strong>${escapeHtml(item.title)}</strong><span>Последняя покупка: ${new Date(item.last).toLocaleDateString("ru-RU")}</span><span>Куплено раз: ${item.count}</span><b>Всего ${formatMoney(item.total)}</b></article>`).join("");
-  els.expensesView.innerHTML = productPurchases.length ? `<div class="purchase-catalog">${cards}</div>` : `<div class="empty-expenses">Купленные продукты появятся здесь после нажатия «Куплено».</div>`;
+  els.expensesView.innerHTML = `
+    <div class="purchase-view-head">
+      <div><span>История</span><h2>Купленные товары</h2></div>
+      <button class="list-add" data-add-purchase type="button" aria-label="Добавить купленный товар">＋</button>
+    </div>
+    ${productPurchases.length ? `<div class="purchase-catalog">${cards}</div>` : `<div class="empty-expenses">Добавьте первый купленный товар с помощью кнопки «＋».</div>`}`;
+}
+
+function openPurchaseDialog() {
+  els.purchaseForm.reset();
+  els.purchaseDate.value = localDateString();
+  els.purchaseQuantity.value = 1;
+  els.purchaseFormMessage.textContent = "";
+  els.purchaseDialog.showModal();
+  requestAnimationFrame(() => els.purchaseTitle.focus());
+}
+
+function addPurchasedProduct(event) {
+  event.preventDefault();
+  const title = els.purchaseTitle.value.trim();
+  const date = els.purchaseDate.value;
+  const quantity = Math.max(1, Math.min(99, Number.parseInt(els.purchaseQuantity.value, 10) || 1));
+  const amount = Number(els.purchaseAmount.value);
+  if (!title || !date || !Number.isFinite(amount) || amount < 0) {
+    els.purchaseFormMessage.textContent = "Заполните название, дату и цену.";
+    return;
+  }
+  const now = new Date().toISOString();
+  const spentAt = new Date(`${date}T12:00:00`).toISOString();
+  const added = Array.from({ length: quantity }, () => ({
+    id: crypto.randomUUID(), item_id: null, title, category: "Продукты", amount,
+    occurrence_date: date, spent_at: spentAt, updated_at: now, deleted: false, dirty: true
+  }));
+  expenses = [...added, ...expenses];
+  persistExpenses();
+  els.purchaseDialog.close();
+  render();
+  scheduleSync();
+  showToast(quantity === 1 ? "Покупка добавлена" : `Добавлено: ${quantity} шт.`);
 }
 
 function createNote(initialType = "task") {
@@ -612,6 +651,7 @@ document.addEventListener("click", (event) => {
   if (taskEdit) { openEditor(taskEdit.dataset.taskEdit); return; }
   const shoppingEdit = event.target.closest("[data-shopping-edit]");
   if (shoppingEdit) { openEditor(shoppingEdit.dataset.shoppingEdit); return; }
+  if (event.target.closest("[data-add-purchase]")) { openPurchaseDialog(); return; }
   const card = event.target.closest(".note-card"); if (card) openEditor(card.dataset.id);
   const filterButton = event.target.closest(".filter");
   if (filterButton) { document.querySelectorAll(".filter").forEach((b) => b.classList.remove("active")); filterButton.classList.add("active"); filter = filterButton.dataset.filter; setMenu(false); updateViewTitle(); render(); }
@@ -630,6 +670,8 @@ els.account.addEventListener("click", () => { updateAccountUI(); els.auth.showMo
 $("#closeAuthButton").addEventListener("click", () => els.auth.close());
 els.authForm.addEventListener("submit", (event) => { event.preventDefault(); authenticate("signin"); });
 $("#signUpButton").addEventListener("click", () => authenticate("signup")); els.signOut.addEventListener("click", signOut);
+els.purchaseForm.addEventListener("submit", addPurchasedProduct);
+$("#closePurchaseButton").addEventListener("click", () => els.purchaseDialog.close());
 els.menuButton.addEventListener("click", () => setMenu(!els.appMenu.classList.contains("open")));
 els.menuBackdrop.addEventListener("click", () => setMenu(false));
 els.prevWeek.addEventListener("click", () => { calendarStart.setDate(calendarStart.getDate() - 7); selectedDate = localDateString(calendarStart); selectCalendarView(); renderCalendarHeader(); updateViewTitle(); render(); });

@@ -171,6 +171,23 @@
       </form>
     </dialog>
 
+    <dialog id="purchaseDialog" class="auth-dialog purchase-dialog">
+      <form id="purchaseForm">
+        <button id="closePurchaseButton" class="dialog-close" type="button" aria-label="Закрыть">×</button>
+        <p class="eyebrow">Покупки</p>
+        <h2>Добавить купленный товар</h2>
+        <p class="dialog-copy">Покупка появится в истории и будет учтена в расходах.</p>
+        <label>Название товара<input id="purchaseTitle" type="text" required maxlength="160" autocomplete="off" placeholder="Например, молоко" /></label>
+        <div class="purchase-form-row">
+          <label>Дата покупки<input id="purchaseDate" type="date" required /></label>
+          <label>Количество<input id="purchaseQuantity" type="number" min="1" max="99" step="1" value="1" required inputmode="numeric" /></label>
+        </div>
+        <label>Цена за единицу, ₽<input id="purchaseAmount" type="number" min="0" step="0.01" required inputmode="decimal" placeholder="0" /></label>
+        <p id="purchaseFormMessage" class="form-message" role="alert"></p>
+        <button class="button primary full" type="submit">Добавить покупку</button>
+      </form>
+    </dialog>
+
     <div id="toast" class="toast hidden" role="status"></div>
     <script src="./config.js"></script>
     <script src="./purchase-history.js"></script>

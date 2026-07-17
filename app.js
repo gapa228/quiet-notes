@@ -46,6 +46,30 @@ function loadExpenses() {
   } catch { return []; }
 }
 function persistExpenses() { localStorage.setItem(expensesStorageKey(), JSON.stringify(expenses)); }
+function importPurchaseHistory() {
+  const groups = window.PURCHASE_HISTORY || [];
+  if (!groups.length) return;
+  const owner = session?.user?.id || "local";
+  const marker = `quiet-purchase-import:2026-07-v1:${owner}`;
+  if (localStorage.getItem(marker)) return;
+  const existingIds = new Set(expenses.map((item) => item.id));
+  const imported = [];
+  let sequence = 0;
+  groups.forEach(([date, title, amount, count]) => {
+    for (let copy = 0; copy < count; copy += 1) {
+      sequence += 1;
+      const id = `70000000-0000-4000-8000-${String(sequence).padStart(12, "0")}`;
+      if (existingIds.has(id)) continue;
+      const timestamp = `${date}T12:00:00.000Z`;
+      imported.push({ id, item_id: null, title, category: "Продукты", amount, occurrence_date: date, spent_at: timestamp, updated_at: timestamp, deleted: false, dirty: true });
+    }
+  });
+  if (imported.length) {
+    expenses = [...imported, ...expenses];
+    persistExpenses();
+  }
+  localStorage.setItem(marker, "done");
+}
 function loadSession() { try { return JSON.parse(localStorage.getItem("quiet-notes:session") || "null"); } catch { return null; } }
 function persistSession(value) {
   session = value;
@@ -569,4 +593,5 @@ window.addEventListener("beforeinstallprompt", (event) => { event.preventDefault
 els.install.addEventListener("click", async () => { if (!deferredInstall) return; deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall = null; els.install.classList.add("hidden"); });
 
 if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js"));
+importPurchaseHistory();
 renderCalendarHeader(); updateViewTitle(); updateAccountUI(); render(); if (session) syncNotes();

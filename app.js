@@ -285,7 +285,7 @@ function render() {
     <article class="note-card advance-card" data-id="${note.id}" tabindex="0">
       <div class="advance-card-top"><span class="type-badge">${typeLabel(note.item_type)}</span><strong>${daysUntilLabel(selectedDate, occurrence)}</strong></div>
       <h2>${escapeHtml(note.title || "Без названия")}</h2>
-      <p>${escapeHtml(note.content || "Пустая заметка")}</p>
+      ${note.content ? `<p>${escapeHtml(note.content)}</p>` : ""}
       <div class="note-meta"><span>Событие ${new Date(`${occurrence}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}</span><time>${note.amount ? formatMoney(note.amount) : `за ${note.remind_days_before} дн.`}</time></div>
     </article>`).join("");
   const taskItems = filter === "today" ? taskItemsForDate(selectedDate) : [];
@@ -317,7 +317,7 @@ function render() {
       ${selectedDate === today && isDueToday(note, today) ? `<button class="card-complete" data-complete-id="${note.id}" type="button" aria-label="Выполнено">✓</button>` : ""}
       <span class="type-badge">${typeLabel(note.item_type)}</span>
       <h2>${escapeHtml(note.title || "Без названия")}</h2>
-      <p>${escapeHtml(note.content || "Пустая заметка")}</p>
+      ${note.content ? `<p>${escapeHtml(note.content)}</p>` : ""}
       <div class="note-meta"><span>${note.pinned ? "закреплено · " : ""}${repeatLabel(note.repeat_rule, note.repeat_interval) || formatDueDate(note.due_date)}</span><time>${note.amount ? formatMoney(note.amount) : formatDate(note.updated_at)}</time></div>
     </article>`).join("");
   els.advanceGrid.innerHTML = filter === "today" ? (advanceCards + regularCards || `<p class="event-empty">Добавьте событие или напоминание на этот день.</p>`) : "";

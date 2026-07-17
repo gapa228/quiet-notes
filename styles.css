@@ -270,7 +270,17 @@ button { color: inherit; }
 }
 
 @media (min-width: 390px) and (max-width: 402px) and (min-height: 800px) {
-  .sidebar-heading { min-height: 168px; }
+  .sidebar-heading { min-height: 135px; }
+  .sidebar-heading::before { bottom: 39px; height: 53px; }
+  .sidebar-heading::after { bottom: 34px; height: 45px; }
+  .eyebrow { margin-bottom: 2px; }
+  .hero-quote { margin-top: 2px; }
+  .calendar-control { bottom: 4px; }
+  .advance-grid .note-card { min-height: 86px; padding: 9px 10px 24px; }
+  .advance-grid .type-badge { margin-bottom: 4px; padding: 3px 6px; }
+  .advance-grid .note-card h2 { margin-bottom: 4px; }
+  .advance-grid .note-card p { margin: 0; line-height: 1.3; -webkit-line-clamp: 1; }
+  .advance-grid .note-meta { bottom: 7px; }
   .advance-section, .tasks-section, .shopping-section { min-height: 132px; max-height: 132px; }
 }
 

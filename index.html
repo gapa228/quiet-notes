@@ -52,11 +52,6 @@
         </aside>
 
         <section class="content">
-          <div class="content-toolbar">
-            <h2 id="viewTitle">Мои напоминания</h2>
-            <button id="newNoteButton" class="button primary" type="button"><span>＋</span><em>Новая запись</em></button>
-          </div>
-
           <div id="emptyState" class="empty-state hidden">
             <span class="empty-glyph">✦</span>
             <h2 id="emptyTitle">Напоминаний нет</h2>
@@ -64,17 +59,17 @@
             <button id="emptyNewButton" class="button primary" type="button">Создать запись</button>
           </div>
           <section id="advanceSection" class="advance-section hidden" aria-labelledby="advanceTitle">
-            <div class="section-heading">
-              <span class="section-icon">◷</span>
+            <div class="panel-head">
               <div>
-                <p>Заранее</p>
-                <h2 id="advanceTitle">Скоро потребуется внимание</h2>
+                <p>События</p>
+                <h2 id="advanceTitle">События и напоминания</h2>
               </div>
+              <button id="addEventItem" class="list-add" type="button" aria-label="Добавить событие">＋</button>
             </div>
             <div id="advanceGrid" class="advance-grid"></div>
           </section>
           <section id="tasksSection" class="tasks-section hidden" aria-labelledby="tasksTitle">
-            <div class="tasks-head">
+            <div class="panel-head">
               <div>
                 <p>Сегодня</p>
                 <h2 id="tasksTitle">Мои задачи</h2>
@@ -88,7 +83,7 @@
             </div>
           </section>
           <section id="shoppingSection" class="shopping-section hidden" aria-labelledby="shoppingTitle">
-            <div class="shopping-head">
+            <div class="panel-head">
               <div>
                 <p>Покупки</p>
                 <h2 id="shoppingTitle">Список покупок</h2>

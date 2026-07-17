@@ -11,7 +11,7 @@ const els = {
   editor: $("#editor"), backdrop: $("#editorBackdrop"), title: $("#noteTitle"),
   type: $("#itemType"), date: $("#noteDate"), repeat: $("#repeatRule"), repeatInterval: $("#repeatInterval"), remindDays: $("#remindDaysBefore"), amount: $("#itemAmount"),
   content: $("#noteContent"), charCount: $("#charCount"), editedAt: $("#editedAt"), expensesView: $("#expensesView"),
-  greeting: $("#greeting"), weekStrip: $("#weekStrip"), viewTitle: $("#viewTitle"),
+  greeting: $("#greeting"), weekStrip: $("#weekStrip"),
   menuButton: $("#menuButton"), appMenu: $("#appMenu"), menuBackdrop: $("#menuBackdrop"),
   prevWeek: $("#prevWeekButton"), nextWeek: $("#nextWeekButton"),
   pin: $("#pinButton"), auth: $("#authDialog"), authForm: $("#authForm"),
@@ -216,10 +216,7 @@ function renderCalendarHeader() {
   }).join("");
 }
 function updateViewTitle() {
-  const date = new Date(`${selectedDate}T12:00:00`);
-  const dayName = date.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
-  const calendarTitle = selectedDate === localDateString() ? "Напоминания на сегодня" : dayName.charAt(0).toUpperCase() + dayName.slice(1);
-  els.viewTitle.textContent = ({ today: calendarTitle, upcoming: "Предстоящие события", purchases: "Мои покупки", expenses: "Расходы за месяц", all: "Все записи", pinned: "Важное" })[filter] || calendarTitle;
+  return undefined;
 }
 function setMenu(open) {
   els.appMenu.classList.toggle("open", open);
@@ -252,7 +249,7 @@ function render() {
     .map((note) => ({ note, occurrence: advanceOccurrenceOn(note, selectedDate) }))
     .filter(({ occurrence }) => occurrence)
     .sort((a, b) => a.occurrence.localeCompare(b.occurrence)) : [];
-  els.advanceGrid.innerHTML = advanceItems.map(({ note, occurrence }) => `
+  const advanceCards = advanceItems.map(({ note, occurrence }) => `
     <article class="note-card advance-card" data-id="${note.id}" tabindex="0">
       <div class="advance-card-top"><span class="type-badge">${typeLabel(note.item_type)}</span><strong>${daysUntilLabel(selectedDate, occurrence)}</strong></div>
       <h2>${escapeHtml(note.title || "Без названия")}</h2>
@@ -283,7 +280,7 @@ function render() {
   const boughtCount = shoppingItems.filter((item) => item.completed).length;
   els.shoppingProgressText.textContent = shoppingItems.length ? `${boughtCount} из ${shoppingItems.length} куплено` : "Список пуст";
   els.shoppingProgressBar.style.width = `${shoppingItems.length ? Math.round(boughtCount / shoppingItems.length * 100) : 0}%`;
-  els.grid.innerHTML = visible.map((note) => `
+  const regularCards = visible.map((note) => `
     <article class="note-card ${note.pinned ? "pinned" : ""} ${note.completed_at && (note.repeat_rule || "none") === "none" ? "completed" : ""}" data-id="${note.id}" tabindex="0">
       ${selectedDate === today && isDueToday(note, today) ? `<button class="card-complete" data-complete-id="${note.id}" type="button" aria-label="Выполнено">✓</button>` : ""}
       <span class="type-badge">${typeLabel(note.item_type)}</span>
@@ -291,6 +288,8 @@ function render() {
       <p>${escapeHtml(note.content || "Пустая заметка")}</p>
       <div class="note-meta"><span>${note.pinned ? "закреплено · " : ""}${repeatLabel(note.repeat_rule, note.repeat_interval) || formatDueDate(note.due_date)}</span><time>${note.amount ? formatMoney(note.amount) : formatDate(note.updated_at)}</time></div>
     </article>`).join("");
+  els.advanceGrid.innerHTML = filter === "today" ? (advanceCards + regularCards || `<p class="event-empty">Добавьте событие или напоминание на этот день.</p>`) : "";
+  els.grid.innerHTML = filter === "today" ? "" : regularCards;
   const alive = notes.filter((n) => !n.deleted);
   const todayItems = alive.filter((n) => isDueToday(n, today));
   const todayAdvanceItems = alive.filter((n) => advanceOccurrenceOn(n, today));
@@ -305,16 +304,13 @@ function render() {
   els.allCount.textContent = alive.length;
   els.pinnedCount.textContent = alive.filter((n) => n.pinned).length;
   const specialMode = filter === "expenses" || filter === "purchases";
-  const hasAdvanceItems = advanceItems.length > 0;
-  els.advanceSection.classList.toggle("hidden", !hasAdvanceItems);
-  const hasTaskItems = taskItems.length > 0;
+  els.advanceSection.classList.toggle("hidden", filter !== "today");
   els.tasksSection.classList.toggle("hidden", filter !== "today");
-  const hasShoppingItems = shoppingItems.length > 0;
   els.shoppingSection.classList.toggle("hidden", filter !== "today");
   els.expensesView.classList.toggle("hidden", !specialMode);
-  els.grid.classList.toggle("hidden", specialMode || visible.length === 0);
-  els.empty.classList.toggle("hidden", specialMode || visible.length > 0 || hasAdvanceItems || hasTaskItems || hasShoppingItems);
-  if (!specialMode && visible.length === 0 && !hasAdvanceItems && !hasTaskItems && !hasShoppingItems) {
+  els.grid.classList.toggle("hidden", specialMode || filter === "today" || visible.length === 0);
+  els.empty.classList.toggle("hidden", specialMode || filter === "today" || visible.length > 0);
+  if (!specialMode && filter !== "today" && visible.length === 0) {
     els.emptyTitle.textContent = selectedDate === today ? "На сегодня всё спокойно" : "На этот день ничего нет";
     els.emptyText.textContent = `Можно создать новую запись на ${new Date(`${selectedDate}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}.`;
   }
@@ -551,7 +547,8 @@ document.addEventListener("click", (event) => {
   if (filterButton) { document.querySelectorAll(".filter").forEach((b) => b.classList.remove("active")); filterButton.classList.add("active"); filter = filterButton.dataset.filter; setMenu(false); updateViewTitle(); render(); }
 });
 document.addEventListener("keydown", (event) => { if (event.key === "Escape" && activeId) closeEditor(); });
-$("#newNoteButton").addEventListener("click", () => createNote()); $("#emptyNewButton").addEventListener("click", () => createNote());
+$("#emptyNewButton").addEventListener("click", () => createNote());
+$("#addEventItem").addEventListener("click", () => createNote("event"));
 $("#addTaskItem").addEventListener("click", () => createNote("task"));
 $("#addShoppingItem").addEventListener("click", () => createNote("product"));
 $("#closeEditorButton").addEventListener("click", closeEditor); els.backdrop.addEventListener("click", closeEditor);

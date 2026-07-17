@@ -35,11 +35,10 @@ button { color: inherit; }
 
 .workspace { display: grid; grid-template-columns: 330px 1fr; gap: 22px; padding: 0 24px 60px; }
 .sidebar { min-width: 0; }
-.sidebar-heading { position: relative; isolation: isolate; min-height: 285px; padding: 34px 26px 20px; overflow: hidden; border: 1px solid var(--line); border-radius: 24px; background: radial-gradient(circle at 73% 48%, #ffb07a 0 9%, rgba(235,112,145,.8) 10%, transparent 25%), linear-gradient(155deg, #111538 5%, #2a1a55 45%, #9e477a 72%, #f08b78 100%); box-shadow: var(--shadow); }
+.sidebar-heading { position: relative; isolation: isolate; min-height: 250px; padding: 28px 26px 20px; overflow: hidden; border: 1px solid var(--line); border-radius: 24px; background: radial-gradient(circle at 73% 42%, #ffb07a 0 9%, rgba(235,112,145,.8) 10%, transparent 25%), linear-gradient(155deg, #111538 5%, #2a1a55 45%, #9e477a 72%, #f08b78 100%); box-shadow: var(--shadow); }
 .sidebar-heading::before, .sidebar-heading::after { content: ""; position: absolute; z-index: -1; right: -5%; bottom: 70px; width: 78%; height: 90px; background: #11122e; clip-path: polygon(0 100%, 9% 65%, 18% 78%, 31% 32%, 42% 68%, 56% 26%, 68% 66%, 79% 35%, 100% 75%, 100% 100%); opacity: .95; }
 .sidebar-heading::after { left: -8%; bottom: 55px; width: 90%; height: 75px; background: #0b0d27; opacity: .82; transform: scaleX(-1); }
 .eyebrow { margin: 0 0 8px; color: white; font-size: 14px; font-weight: 800; letter-spacing: .02em; }
-.sidebar h1 { margin: 0; font-size: 31px; line-height: 1.06; letter-spacing: -.04em; }
 .hero-quote { margin: 10px 0 0; color: rgba(255,255,255,.66); font-size: 11px; }
 .calendar-control { position: absolute; z-index: 2; left: 7px; right: 7px; bottom: 12px; display: grid; grid-template-columns: 22px minmax(0, 1fr) 22px; align-items: center; gap: 3px; }
 .week-strip { display: grid; grid-template-columns: repeat(7, minmax(43px, 1fr)); gap: 3px; overflow-x: auto; scrollbar-width: none; }
@@ -229,8 +228,8 @@ button { color: inherit; }
   .topbar { height: 58px; padding: 0 13px; }
   .brand span:last-child, .sync-status { display: none; }
   .workspace { display: block; padding: 0 10px 75px; }
-  .sidebar-heading { min-height: 250px; padding: 22px 12px; border-radius: 0 0 21px 21px; border-top: 0; }
-  .sidebar h1 { font-size: 25px; }
+  .sidebar-heading { min-height: 220px; padding: 20px 12px; border-radius: 0 0 21px 21px; border-top: 0; }
+  .content { margin-top: 15px; }
   .hero-quote { font-size: 10px; }
   .calendar-control { left: 5px; right: 5px; }
   .filters { top: 62px; left: 10px; width: min(300px, calc(100% - 20px)); }

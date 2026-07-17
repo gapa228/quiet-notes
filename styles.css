@@ -225,11 +225,34 @@ button { color: inherit; }
 
 @media (max-width: 840px) {
   .app-shell { width: 100%; }
-  .topbar { height: 58px; padding: 0 13px; }
+  .topbar { height: 52px; padding: 0 12px; }
   .brand span:last-child, .sync-status { display: none; }
-  .workspace { display: block; padding: 0 10px 75px; }
-  .sidebar-heading { min-height: 220px; padding: 20px 12px; border-radius: 0 0 21px 21px; border-top: 0; }
-  .content { margin-top: 15px; }
+  .workspace { display: block; padding: 0 10px 55px; }
+  .sidebar-heading { min-height: 170px; padding: 13px 10px; border-radius: 0 0 18px 18px; border-top: 0; }
+  .sidebar-heading::before { bottom: 53px; height: 63px; }
+  .sidebar-heading::after { bottom: 45px; height: 55px; }
+  .eyebrow { margin-bottom: 4px; font-size: 11px; }
+  .hero-quote { margin-top: 4px; font-size: 8px; }
+  .content { margin-top: 10px; }
+  .calendar-control { bottom: 7px; }
+  .day-chip { min-width: 40px; padding: 6px 2px; border-radius: 8px; }
+  .day-chip strong { font-size: 16px; }
+  .week-arrow { height: 36px; }
+  .advance-section, .tasks-section, .shopping-section { min-height: 135px; max-height: 135px; margin-bottom: 10px; padding: 11px 12px; border-radius: 15px; overflow: hidden; }
+  .panel-head { margin-bottom: 5px; }
+  .panel-head h2 { font-size: 13px; }
+  .panel-head p { font-size: 7px; }
+  .list-add { width: 25px; height: 25px; font-size: 16px; }
+  .advance-grid { max-height: 88px; overflow-y: auto; }
+  .advance-grid .note-card { min-height: 82px; padding: 10px; }
+  .advance-grid .note-card h2 { font-size: 13px; }
+  .advance-grid .note-meta { left: 10px; right: 10px; bottom: 8px; }
+  .event-empty, .task-empty, .shopping-empty { margin: 9px 0 5px; font-size: 9px; }
+  .tasks-list, .shopping-list { max-height: 55px; overflow-y: auto; }
+  .task-row, .shopping-row { min-height: 25px; }
+  .task-name, .shopping-name { font-size: 10px; }
+  .tasks-footer, .shopping-footer { margin-top: 5px; }
+  .shopping-basket { right: 7px; bottom: 2px; font-size: 27px; }
   .hero-quote { font-size: 10px; }
   .calendar-control { left: 5px; right: 5px; }
   .filters { top: 62px; left: 10px; width: min(300px, calc(100% - 20px)); }

@@ -234,9 +234,9 @@ button { color: inherit; }
   .topbar { height: calc(52px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left)); }
   .brand span:last-child, .sync-status { display: none; }
   .workspace { display: block; padding: 0 max(10px, env(safe-area-inset-right)) calc(55px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); }
-  .sidebar-heading { min-height: 170px; padding: 13px 10px; border-radius: 0 0 18px 18px; border-top: 0; }
-  .sidebar-heading::before { bottom: 53px; height: 63px; }
-  .sidebar-heading::after { bottom: 45px; height: 55px; }
+  .sidebar-heading { min-height: 142px; padding: 13px 10px; border-radius: 0 0 18px 18px; border-top: 0; }
+  .sidebar-heading::before { bottom: 45px; height: 45px; }
+  .sidebar-heading::after { bottom: 38px; height: 40px; }
   .eyebrow { margin-bottom: 4px; font-size: 11px; }
   .hero-quote { margin-top: 4px; font-size: 8px; }
   .content { margin-top: 10px; }
@@ -278,9 +278,9 @@ button { color: inherit; }
 }
 
 @media (min-width: 390px) and (max-width: 402px) and (min-height: 800px) {
-  .sidebar-heading { min-height: 135px; }
-  .sidebar-heading::before { bottom: 39px; height: 53px; }
-  .sidebar-heading::after { bottom: 34px; height: 45px; }
+  .sidebar-heading { min-height: 125px; }
+  .sidebar-heading::before { bottom: 36px; height: 45px; }
+  .sidebar-heading::after { bottom: 31px; height: 39px; }
   .eyebrow { margin-bottom: 2px; }
   .hero-quote { margin-top: 2px; }
   .calendar-control { bottom: 4px; }

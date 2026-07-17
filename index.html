@@ -54,10 +54,6 @@
         <section class="content">
           <div class="content-toolbar">
             <h2 id="viewTitle">Мои напоминания</h2>
-            <label class="search">
-              <span aria-hidden="true">⌕</span>
-              <input id="searchInput" type="search" placeholder="Найти заметку" autocomplete="off" />
-            </label>
             <button id="newNoteButton" class="button primary" type="button"><span>＋</span><em>Новая запись</em></button>
           </div>
 
@@ -77,13 +73,27 @@
             </div>
             <div id="advanceGrid" class="advance-grid"></div>
           </section>
+          <section id="tasksSection" class="tasks-section hidden" aria-labelledby="tasksTitle">
+            <div class="tasks-head">
+              <div>
+                <p>Сегодня</p>
+                <h2 id="tasksTitle">Мои задачи</h2>
+              </div>
+              <button id="addTaskItem" class="list-add" type="button" aria-label="Добавить задачу">＋</button>
+            </div>
+            <div id="tasksList" class="tasks-list"></div>
+            <div class="tasks-footer">
+              <span id="tasksProgressText">Задач нет</span>
+              <div class="list-progress"><i id="tasksProgressBar"></i></div>
+            </div>
+          </section>
           <section id="shoppingSection" class="shopping-section hidden" aria-labelledby="shoppingTitle">
             <div class="shopping-head">
               <div>
                 <p>Покупки</p>
                 <h2 id="shoppingTitle">Список покупок</h2>
               </div>
-              <button id="addShoppingItem" class="shopping-add" type="button" aria-label="Добавить продукт">＋</button>
+              <button id="addShoppingItem" class="list-add" type="button" aria-label="Добавить продукт">＋</button>
             </div>
             <div id="shoppingList" class="shopping-list"></div>
             <div class="shopping-footer">

@@ -3,8 +3,9 @@ const cloudEnabled = Boolean(config.supabaseUrl && config.supabaseAnonKey);
 
 const $ = (selector) => document.querySelector(selector);
 const els = {
-  grid: $("#notesGrid"), empty: $("#emptyState"), emptyTitle: $("#emptyTitle"), emptyText: $("#emptyText"), search: $("#searchInput"),
+  grid: $("#notesGrid"), empty: $("#emptyState"), emptyTitle: $("#emptyTitle"), emptyText: $("#emptyText"),
   advanceSection: $("#advanceSection"), advanceGrid: $("#advanceGrid"),
+  tasksSection: $("#tasksSection"), tasksList: $("#tasksList"), tasksProgressText: $("#tasksProgressText"), tasksProgressBar: $("#tasksProgressBar"),
   shoppingSection: $("#shoppingSection"), shoppingList: $("#shoppingList"), shoppingProgressText: $("#shoppingProgressText"), shoppingProgressBar: $("#shoppingProgressBar"),
   todayCount: $("#todayCount"), upcomingCount: $("#upcomingCount"), purchasesCount: $("#purchasesCount"), allCount: $("#allCount"), pinnedCount: $("#pinnedCount"), sync: $("#syncStatus"),
   editor: $("#editor"), backdrop: $("#editorBackdrop"), title: $("#noteTitle"),
@@ -151,6 +152,29 @@ function shoppingItemsForDate(date) {
     return scheduled ? { note, occurrence: note.due_date || date, completed: false } : null;
   }).filter(Boolean).sort((a, b) => Number(a.completed) - Number(b.completed) || (a.note.title || "").localeCompare(b.note.title || "", "ru"));
 }
+function taskItemsForDate(date) {
+  const today = localDateString();
+  return notes.filter((note) => !note.deleted && note.item_type === "task").map((note) => {
+    const rule = note.repeat_rule || "none";
+    if (rule !== "none") {
+      const occurrence = occurrenceForDate(note, date);
+      return occurrence ? { note, occurrence, completed: isCompletedForOccurrence(note, occurrence) } : null;
+    }
+    if (note.completed_at) {
+      const completedOn = localDateString(new Date(note.completed_at));
+      const belongsToDate = note.due_date === date || (completedOn === date && (!note.due_date || note.due_date <= date));
+      return belongsToDate ? { note, occurrence: note.due_date || date, completed: true } : null;
+    }
+    const scheduled = !note.due_date ? date === today : (date === today ? note.due_date <= date : note.due_date === date);
+    return scheduled ? { note, occurrence: note.due_date || date, completed: false } : null;
+  }).filter(Boolean).sort((a, b) => Number(a.completed) - Number(b.completed) || (a.note.title || "").localeCompare(b.note.title || "", "ru"));
+}
+function taskDateLabel(note, date) {
+  const recurring = repeatLabel(note.repeat_rule, note.repeat_interval);
+  if (recurring) return recurring;
+  if (note.due_date && note.due_date < date) return "Просрочено";
+  return note.due_date ? new Date(`${note.due_date}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "short" }) : "Без даты";
+}
 function repeatLabel(rule, interval = 1) {
   const number = Math.max(1, Number(interval) || 1);
   if (rule === "none" || !rule) return "";
@@ -207,7 +231,6 @@ function selectCalendarView() {
   document.querySelectorAll(".filter").forEach((button) => button.classList.toggle("active", button.dataset.filter === "today"));
 }
 function render() {
-  const query = els.search.value.trim().toLowerCase();
   const today = localDateString();
   const inThirtyDays = new Date(`${today}T12:00:00`); inThirtyDays.setDate(inThirtyDays.getDate() + 30);
   const upcomingLimit = localDateString(inThirtyDays);
@@ -217,10 +240,9 @@ function render() {
       if (filter === "all" || filter === "expenses" || filter === "purchases") return true;
       if (filter === "pinned") return n.pinned;
       if (filter === "upcoming") { const next = nextOccurrence(n, today, 30); return next && next >= today && next <= upcomingLimit; }
-      if (n.item_type === "product") return false;
+      if (n.item_type === "product" || n.item_type === "task") return false;
       return isDueOn(n, selectedDate);
     })
-    .filter((n) => !query || `${n.title} ${n.content}`.toLowerCase().includes(query))
     .sort((a, b) => {
       if (filter === "upcoming") return (nextOccurrence(a, today, 30) || "9999").localeCompare(nextOccurrence(b, today, 30) || "9999");
       return Number(b.pinned) - Number(a.pinned) || new Date(b.updated_at) - new Date(a.updated_at);
@@ -228,7 +250,7 @@ function render() {
   const advanceItems = filter === "today" ? notes
     .filter((n) => !n.deleted)
     .map((note) => ({ note, occurrence: advanceOccurrenceOn(note, selectedDate) }))
-    .filter(({ note, occurrence }) => occurrence && (!query || `${note.title} ${note.content}`.toLowerCase().includes(query)))
+    .filter(({ occurrence }) => occurrence)
     .sort((a, b) => a.occurrence.localeCompare(b.occurrence)) : [];
   els.advanceGrid.innerHTML = advanceItems.map(({ note, occurrence }) => `
     <article class="note-card advance-card" data-id="${note.id}" tabindex="0">
@@ -237,8 +259,19 @@ function render() {
       <p>${escapeHtml(note.content || "Пустая заметка")}</p>
       <div class="note-meta"><span>Событие ${new Date(`${occurrence}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}</span><time>${note.amount ? formatMoney(note.amount) : `за ${note.remind_days_before} дн.`}</time></div>
     </article>`).join("");
-  const shoppingItems = filter === "today" ? shoppingItemsForDate(selectedDate)
-    .filter(({ note }) => !query || `${note.title} ${note.content}`.toLowerCase().includes(query)) : [];
+  const taskItems = filter === "today" ? taskItemsForDate(selectedDate) : [];
+  const canComplete = selectedDate === today;
+  els.tasksList.innerHTML = taskItems.length ? taskItems.map(({ note, completed }) => `
+    <div class="task-row ${completed ? "done" : ""}">
+      <button class="task-check" data-task-id="${note.id}" type="button" aria-label="${completed ? "Вернуть задачу" : "Выполнено"}" ${canComplete ? "" : "disabled"}>${completed ? "✓" : ""}</button>
+      <button class="task-name" data-task-edit="${note.id}" type="button">${escapeHtml(note.title || "Новая задача")}</button>
+      <span>${taskDateLabel(note, selectedDate)}</span>
+      <button class="task-edit" data-task-edit="${note.id}" type="button" aria-label="Изменить задачу">›</button>
+    </div>`).join("") : `<p class="task-empty">Добавьте первую задачу на этот день.</p>`;
+  const completedTasks = taskItems.filter((item) => item.completed).length;
+  els.tasksProgressText.textContent = taskItems.length ? `${completedTasks} из ${taskItems.length} выполнено` : "Задач нет";
+  els.tasksProgressBar.style.width = `${taskItems.length ? Math.round(completedTasks / taskItems.length * 100) : 0}%`;
+  const shoppingItems = filter === "today" ? shoppingItemsForDate(selectedDate) : [];
   const canBuy = selectedDate === today;
   els.shoppingList.innerHTML = shoppingItems.length ? shoppingItems.map(({ note, completed }) => `
     <div class="shopping-row ${completed ? "bought" : ""}">
@@ -274,12 +307,14 @@ function render() {
   const specialMode = filter === "expenses" || filter === "purchases";
   const hasAdvanceItems = advanceItems.length > 0;
   els.advanceSection.classList.toggle("hidden", !hasAdvanceItems);
+  const hasTaskItems = taskItems.length > 0;
+  els.tasksSection.classList.toggle("hidden", filter !== "today");
   const hasShoppingItems = shoppingItems.length > 0;
   els.shoppingSection.classList.toggle("hidden", filter !== "today");
   els.expensesView.classList.toggle("hidden", !specialMode);
   els.grid.classList.toggle("hidden", specialMode || visible.length === 0);
-  els.empty.classList.toggle("hidden", specialMode || visible.length > 0 || hasAdvanceItems || hasShoppingItems);
-  if (!specialMode && visible.length === 0 && !hasAdvanceItems && !hasShoppingItems) {
+  els.empty.classList.toggle("hidden", specialMode || visible.length > 0 || hasAdvanceItems || hasTaskItems || hasShoppingItems);
+  if (!specialMode && visible.length === 0 && !hasAdvanceItems && !hasTaskItems && !hasShoppingItems) {
     els.emptyTitle.textContent = selectedDate === today ? "На сегодня всё спокойно" : "На этот день ничего нет";
     els.emptyText.textContent = `Можно создать новую запись на ${new Date(`${selectedDate}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}.`;
   }
@@ -505,6 +540,10 @@ document.addEventListener("click", (event) => {
   if (complete) { event.stopPropagation(); completeNote(complete.dataset.completeId); return; }
   const buy = event.target.closest("[data-buy-id]");
   if (buy) { event.stopPropagation(); completeNote(buy.dataset.buyId); return; }
+  const task = event.target.closest("[data-task-id]");
+  if (task) { event.stopPropagation(); completeNote(task.dataset.taskId); return; }
+  const taskEdit = event.target.closest("[data-task-edit]");
+  if (taskEdit) { openEditor(taskEdit.dataset.taskEdit); return; }
   const shoppingEdit = event.target.closest("[data-shopping-edit]");
   if (shoppingEdit) { openEditor(shoppingEdit.dataset.shoppingEdit); return; }
   const card = event.target.closest(".note-card"); if (card) openEditor(card.dataset.id);
@@ -513,13 +552,14 @@ document.addEventListener("click", (event) => {
 });
 document.addEventListener("keydown", (event) => { if (event.key === "Escape" && activeId) closeEditor(); });
 $("#newNoteButton").addEventListener("click", () => createNote()); $("#emptyNewButton").addEventListener("click", () => createNote());
+$("#addTaskItem").addEventListener("click", () => createNote("task"));
 $("#addShoppingItem").addEventListener("click", () => createNote("product"));
 $("#closeEditorButton").addEventListener("click", closeEditor); els.backdrop.addEventListener("click", closeEditor);
 els.title.addEventListener("input", debounceSave); els.content.addEventListener("input", debounceSave); els.date.addEventListener("change", flushEditor);
 els.repeat.addEventListener("change", flushEditor); els.repeatInterval.addEventListener("change", flushEditor); els.remindDays.addEventListener("input", debounceSave); els.amount.addEventListener("input", debounceSave); els.type.addEventListener("change", applyTypeDefaults);
 els.pin.addEventListener("click", togglePin); $("#deleteButton").addEventListener("click", deleteActive);
 els.complete.addEventListener("click", () => completeNote(activeId));
-els.search.addEventListener("input", render); els.account.addEventListener("click", () => { updateAccountUI(); els.auth.showModal(); });
+els.account.addEventListener("click", () => { updateAccountUI(); els.auth.showModal(); });
 $("#closeAuthButton").addEventListener("click", () => els.auth.close());
 els.authForm.addEventListener("submit", (event) => { event.preventDefault(); authenticate("signin"); });
 $("#signUpButton").addEventListener("click", () => authenticate("signup")); els.signOut.addEventListener("click", signOut);

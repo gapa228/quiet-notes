@@ -229,6 +229,7 @@ function nextOccurrence(note, start = localDateString(), horizon = 365) {
 function typeLabel(type) {
   return ({ task: "Дело", event: "Событие", birthday: "День рождения", subscription: "Подписка", product: "Продукт" })[type] || "Дело";
 }
+function isEventItem(note) { return ["event", "birthday", "subscription"].includes(note.item_type); }
 function expenseCategory(type) { return type === "subscription" ? "Подписки" : "Продукты"; }
 function formatMoney(value) { return `${new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(Number(value) || 0)} ₽`; }
 function monthExpenses() {
@@ -269,7 +270,7 @@ function render() {
     .filter((n) => {
       if (filter === "all" || filter === "expenses" || filter === "purchases") return true;
       if (filter === "pinned") return n.pinned;
-      if (filter === "upcoming") { const next = nextOccurrence(n, today, 30); return next && next >= today && next <= upcomingLimit; }
+      if (filter === "upcoming") { const next = nextOccurrence(n, today, 30); return isEventItem(n) && next && next >= today && next <= upcomingLimit; }
       if (n.item_type === "product" || n.item_type === "task") return false;
       return isDueOn(n, selectedDate);
     })
@@ -326,7 +327,7 @@ function render() {
   const alive = notes.filter((n) => !n.deleted);
   const todayItems = alive.filter((n) => isDueToday(n, today));
   const todayAdvanceItems = alive.filter((n) => advanceOccurrenceOn(n, today));
-  const upcomingItems = alive.filter((n) => { const next = nextOccurrence(n, today, 30); return next && next >= today && next <= upcomingLimit; });
+  const upcomingItems = alive.filter((n) => { const next = nextOccurrence(n, today, 30); return isEventItem(n) && next && next >= today && next <= upcomingLimit; });
   const spending = monthExpenses();
   const productPurchases = expenses.filter((item) => !item.deleted && item.category === "Продукты");
   const totalSpend = spending.reduce((sum, item) => sum + Number(item.amount || 0), 0);
@@ -343,8 +344,8 @@ function render() {
   els.grid.classList.toggle("hidden", specialMode || filter === "today" || visible.length === 0);
   els.empty.classList.toggle("hidden", specialMode || filter === "today" || visible.length > 0);
   if (!specialMode && filter !== "today" && visible.length === 0) {
-    els.emptyTitle.textContent = selectedDate === today ? "На сегодня всё спокойно" : "На этот день ничего нет";
-    els.emptyText.textContent = `Можно создать новую запись на ${new Date(`${selectedDate}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}.`;
+    els.emptyTitle.textContent = filter === "upcoming" ? "Предстоящих событий нет" : selectedDate === today ? "На сегодня всё спокойно" : "На этот день ничего нет";
+    els.emptyText.textContent = filter === "upcoming" ? "Здесь появятся ближайшие события, дни рождения и подписки." : `Можно создать новую запись на ${new Date(`${selectedDate}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}.`;
   }
   if (filter === "expenses") renderExpenses(spending, totalSpend);
   if (filter === "purchases") renderPurchases(productPurchases);

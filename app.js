@@ -160,6 +160,14 @@ function daysUntilLabel(from, until) {
   const ending = days % 10 === 1 && days % 100 !== 11 ? "день" : [2, 3, 4].includes(days % 10) && ![12, 13, 14].includes(days % 100) ? "дня" : "дней";
   return `Через ${days} ${ending}`;
 }
+function pluralRu(number, one, few, many) {
+  const value = Math.abs(Number(number)) % 100;
+  const last = value % 10;
+  if (value > 10 && value < 20) return many;
+  if (last === 1) return one;
+  if (last >= 2 && last <= 4) return few;
+  return many;
+}
 function shoppingItemsForDate(date) {
   const today = localDateString();
   return notes.filter((note) => !note.deleted && note.item_type === "product").map((note) => {
@@ -321,7 +329,6 @@ function render() {
   const spending = monthExpenses();
   const productPurchases = expenses.filter((item) => !item.deleted && item.category === "Продукты");
   const totalSpend = spending.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const totals = spending.reduce((acc, item) => { acc[item.category] = (acc[item.category] || 0) + Number(item.amount || 0); return acc; }, {});
   els.todayCount.textContent = todayItems.length + todayAdvanceItems.length;
   els.upcomingCount.textContent = upcomingItems.length;
   els.purchasesCount.textContent = new Set(productPurchases.map((item) => item.title.trim().toLowerCase())).size;
@@ -338,19 +345,58 @@ function render() {
     els.emptyTitle.textContent = selectedDate === today ? "На сегодня всё спокойно" : "На этот день ничего нет";
     els.emptyText.textContent = `Можно создать новую запись на ${new Date(`${selectedDate}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}.`;
   }
-  if (filter === "expenses") renderExpenses(spending, totals, totalSpend);
+  if (filter === "expenses") renderExpenses(spending, totalSpend);
   if (filter === "purchases") renderPurchases(productPurchases);
 }
 
-function renderExpenses(spending, totals, totalSpend) {
-  const max = Math.max(...Object.values(totals), 1);
-  const bars = Object.entries(totals).sort((a, b) => b[1] - a[1]).map(([name, amount]) => `
-    <div><div class="expense-bar-head"><span>${name}</span><b>${formatMoney(amount)}</b></div><div class="expense-bar-track"><div class="expense-bar-fill" style="width:${Math.round(amount / max * 100)}%"></div></div></div>`).join("");
+function renderExpenses(spending, totalSpend) {
+  const productSpending = spending.filter((item) => item.category === "Продукты");
+  const chronologically = [...productSpending].sort((a, b) => new Date(a.spent_at) - new Date(b.spent_at));
+  const grouped = new Map();
+  chronologically.forEach((item) => {
+    const key = item.title.trim().toLowerCase();
+    const amount = Number(item.amount || 0);
+    const current = grouped.get(key) || { title: item.title, count: 0, total: 0, firstPrice: amount, lastPrice: amount, minPrice: amount, maxPrice: amount };
+    current.count += 1;
+    current.total += amount;
+    current.lastPrice = amount;
+    current.minPrice = Math.min(current.minPrice, amount);
+    current.maxPrice = Math.max(current.maxPrice, amount);
+    grouped.set(key, current);
+  });
+  const products = [...grouped.values()].sort((a, b) => b.total - a.total);
+  const averagePurchase = productSpending.length ? productSpending.reduce((sum, item) => sum + Number(item.amount || 0), 0) / productSpending.length : 0;
+  const topProduct = products[0];
+  const productRows = products.map((product, index) => {
+    const share = totalSpend ? Math.round(product.total / totalSpend * 100) : 0;
+    const average = product.total / product.count;
+    const delta = product.lastPrice - product.firstPrice;
+    const trendClass = delta > 0 ? "up" : delta < 0 ? "down" : "flat";
+    const trendText = delta > 0 ? `▲ ${formatMoney(Math.abs(delta))}` : delta < 0 ? `▼ ${formatMoney(Math.abs(delta))}` : "без изменений";
+    return `<article class="product-analytics-row">
+      <div class="analytics-rank">${index + 1}</div>
+      <div class="analytics-product-main">
+        <div class="analytics-product-title"><strong>${escapeHtml(product.title)}</strong><b>${formatMoney(product.total)}</b></div>
+        <div class="analytics-share-track"><i style="width:${share}%"></i></div>
+        <div class="analytics-product-meta"><span>${product.count} ${pluralRu(product.count, "покупка", "покупки", "покупок")} · ${share}% расходов</span><span>средняя ${formatMoney(average)}</span></div>
+      </div>
+      <div class="analytics-price"><small>последняя</small><strong>${formatMoney(product.lastPrice)}</strong><span class="trend ${trendClass}">${trendText}</span></div>
+    </article>`;
+  }).join("");
   const rows = [...spending].sort((a, b) => new Date(b.spent_at) - new Date(a.spent_at)).map((item) => `
     <div class="expense-row"><strong>${escapeHtml(item.title)}</strong><span>${item.category} · ${new Date(item.spent_at).toLocaleDateString("ru-RU")}</span><b>${formatMoney(item.amount)}</b></div>`).join("");
+  const monthLabel = new Date(`${localDateString().slice(0, 7)}-01T12:00:00`).toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
   els.expensesView.innerHTML = `
-    <div class="expense-total"><div><span>Потрачено за месяц</span><br><strong>${formatMoney(totalSpend)}</strong></div></div>
-    ${spending.length ? `<div class="expense-bars">${bars}</div><div class="expense-list">${rows}</div>` : `<div class="empty-expenses">Здесь появятся оплаченные подписки и купленные продукты.</div>`}`;
+    <div class="expense-total"><div><span>${monthLabel}</span><br><strong>${formatMoney(totalSpend)}</strong><small>потрачено за месяц</small></div></div>
+    ${spending.length ? `
+      <div class="analytics-summary">
+        <div><span>Покупок</span><strong>${productSpending.length}</strong></div>
+        <div><span>Разных товаров</span><strong>${products.length}</strong></div>
+        <div><span>Средняя покупка</span><strong>${formatMoney(averagePurchase)}</strong></div>
+        <div><span>Больше всего</span><strong>${topProduct ? escapeHtml(topProduct.title) : "—"}</strong></div>
+      </div>
+      <section class="product-analytics"><div class="analytics-heading"><div><span>Аналитика</span><h3>Расходы по товарам</h3></div><b>${products.length} ${pluralRu(products.length, "товар", "товара", "товаров")}</b></div>${productRows}</section>
+      <details class="expense-history"><summary>Все покупки за месяц <b>${spending.length}</b></summary><div class="expense-list">${rows}</div></details>` : `<div class="empty-expenses">Здесь появятся оплаченные подписки и купленные продукты.</div>`}`;
 }
 
 function renderPurchases(productPurchases) {

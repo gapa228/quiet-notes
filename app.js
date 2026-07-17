@@ -4,9 +4,10 @@ const cloudEnabled = Boolean(config.supabaseUrl && config.supabaseAnonKey);
 const $ = (selector) => document.querySelector(selector);
 const els = {
   grid: $("#notesGrid"), empty: $("#emptyState"), emptyTitle: $("#emptyTitle"), emptyText: $("#emptyText"), search: $("#searchInput"),
+  advanceSection: $("#advanceSection"), advanceGrid: $("#advanceGrid"),
   todayCount: $("#todayCount"), upcomingCount: $("#upcomingCount"), purchasesCount: $("#purchasesCount"), allCount: $("#allCount"), pinnedCount: $("#pinnedCount"), sync: $("#syncStatus"),
   editor: $("#editor"), backdrop: $("#editorBackdrop"), title: $("#noteTitle"),
-  type: $("#itemType"), date: $("#noteDate"), repeat: $("#repeatRule"), repeatInterval: $("#repeatInterval"), amount: $("#itemAmount"),
+  type: $("#itemType"), date: $("#noteDate"), repeat: $("#repeatRule"), repeatInterval: $("#repeatInterval"), remindDays: $("#remindDaysBefore"), amount: $("#itemAmount"),
   content: $("#noteContent"), charCount: $("#charCount"), editedAt: $("#editedAt"), expensesView: $("#expensesView"),
   greeting: $("#greeting"), weekStrip: $("#weekStrip"), viewTitle: $("#viewTitle"),
   menuButton: $("#menuButton"), appMenu: $("#appMenu"), menuBackdrop: $("#menuBackdrop"),
@@ -116,6 +117,23 @@ function isDueOn(note, date) {
   if ((note.repeat_rule || "none") === "none") return note.due_date === date && !note.completed_at;
   return !isCompletedForOccurrence(note, occurrence);
 }
+function advanceOccurrenceOn(note, date) {
+  const leadDays = Math.max(0, Math.min(365, Number(note.remind_days_before) || 0));
+  if (!leadDays || !note.due_date || note.deleted) return null;
+  const cursor = new Date(`${date}T12:00:00`);
+  for (let offset = 1; offset <= leadDays; offset += 1) {
+    cursor.setDate(cursor.getDate() + 1);
+    const candidate = localDateString(cursor);
+    if (occurrenceForDate(note, candidate) && !isCompletedForOccurrence(note, candidate)) return candidate;
+  }
+  return null;
+}
+function daysUntilLabel(from, until) {
+  const days = dayDifference(new Date(`${from}T12:00:00`), new Date(`${until}T12:00:00`));
+  if (days === 1) return "Завтра";
+  const ending = days % 10 === 1 && days % 100 !== 11 ? "день" : [2, 3, 4].includes(days % 10) && ![12, 13, 14].includes(days % 100) ? "дня" : "дней";
+  return `Через ${days} ${ending}`;
+}
 function repeatLabel(rule, interval = 1) {
   const number = Math.max(1, Number(interval) || 1);
   if (rule === "none" || !rule) return "";
@@ -189,6 +207,18 @@ function render() {
       if (filter === "upcoming") return (nextOccurrence(a, today, 30) || "9999").localeCompare(nextOccurrence(b, today, 30) || "9999");
       return Number(b.pinned) - Number(a.pinned) || new Date(b.updated_at) - new Date(a.updated_at);
     });
+  const advanceItems = filter === "today" ? notes
+    .filter((n) => !n.deleted)
+    .map((note) => ({ note, occurrence: advanceOccurrenceOn(note, selectedDate) }))
+    .filter(({ note, occurrence }) => occurrence && (!query || `${note.title} ${note.content}`.toLowerCase().includes(query)))
+    .sort((a, b) => a.occurrence.localeCompare(b.occurrence)) : [];
+  els.advanceGrid.innerHTML = advanceItems.map(({ note, occurrence }) => `
+    <article class="note-card advance-card" data-id="${note.id}" tabindex="0">
+      <div class="advance-card-top"><span class="type-badge">${typeLabel(note.item_type)}</span><strong>${daysUntilLabel(selectedDate, occurrence)}</strong></div>
+      <h2>${escapeHtml(note.title || "Без названия")}</h2>
+      <p>${escapeHtml(note.content || "Пустая заметка")}</p>
+      <div class="note-meta"><span>Событие ${new Date(`${occurrence}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}</span><time>${note.amount ? formatMoney(note.amount) : `за ${note.remind_days_before} дн.`}</time></div>
+    </article>`).join("");
   els.grid.innerHTML = visible.map((note) => `
     <article class="note-card ${note.pinned ? "pinned" : ""} ${note.completed_at && (note.repeat_rule || "none") === "none" ? "completed" : ""}" data-id="${note.id}" tabindex="0">
       ${selectedDate === today && isDueToday(note, today) ? `<button class="card-complete" data-complete-id="${note.id}" type="button" aria-label="Выполнено">✓</button>` : ""}
@@ -199,21 +229,24 @@ function render() {
     </article>`).join("");
   const alive = notes.filter((n) => !n.deleted);
   const todayItems = alive.filter((n) => isDueToday(n, today));
+  const todayAdvanceItems = alive.filter((n) => advanceOccurrenceOn(n, today));
   const upcomingItems = alive.filter((n) => { const next = nextOccurrence(n, today, 30); return next && next >= today && next <= upcomingLimit; });
   const spending = monthExpenses();
   const productPurchases = expenses.filter((item) => !item.deleted && item.category === "Продукты");
   const totalSpend = spending.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const totals = spending.reduce((acc, item) => { acc[item.category] = (acc[item.category] || 0) + Number(item.amount || 0); return acc; }, {});
-  els.todayCount.textContent = todayItems.length;
+  els.todayCount.textContent = todayItems.length + todayAdvanceItems.length;
   els.upcomingCount.textContent = upcomingItems.length;
   els.purchasesCount.textContent = new Set(productPurchases.map((item) => item.title.trim().toLowerCase())).size;
   els.allCount.textContent = alive.length;
   els.pinnedCount.textContent = alive.filter((n) => n.pinned).length;
   const specialMode = filter === "expenses" || filter === "purchases";
+  const hasAdvanceItems = advanceItems.length > 0;
+  els.advanceSection.classList.toggle("hidden", !hasAdvanceItems);
   els.expensesView.classList.toggle("hidden", !specialMode);
   els.grid.classList.toggle("hidden", specialMode || visible.length === 0);
-  els.empty.classList.toggle("hidden", specialMode || visible.length > 0);
-  if (!specialMode && visible.length === 0) {
+  els.empty.classList.toggle("hidden", specialMode || visible.length > 0 || hasAdvanceItems);
+  if (!specialMode && visible.length === 0 && !hasAdvanceItems) {
     els.emptyTitle.textContent = selectedDate === today ? "На сегодня всё спокойно" : "На этот день ничего нет";
     els.emptyText.textContent = `Можно создать новую запись на ${new Date(`${selectedDate}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}.`;
   }
@@ -248,7 +281,7 @@ function renderPurchases(productPurchases) {
 
 function createNote() {
   const now = new Date().toISOString();
-  const note = { id: crypto.randomUUID(), title: "", content: "", item_type: "task", amount: null, due_date: selectedDate, repeat_rule: "none", repeat_interval: 1, completed_at: null, pinned: false, updated_at: now, deleted: false, dirty: true };
+  const note = { id: crypto.randomUUID(), title: "", content: "", item_type: "task", amount: null, due_date: selectedDate, repeat_rule: "none", repeat_interval: 1, remind_days_before: 0, completed_at: null, pinned: false, updated_at: now, deleted: false, dirty: true };
   notes.unshift(note); persistNotes(); render(); openEditor(note.id); scheduleSync();
   requestAnimationFrame(() => els.title.focus());
 }
@@ -261,6 +294,7 @@ function openEditor(id) {
   els.date.value = note.due_date || "";
   els.repeat.value = note.repeat_rule || "none";
   els.repeatInterval.value = note.repeat_interval || 1;
+  els.remindDays.value = note.remind_days_before || 0;
   els.amount.value = note.amount ?? "";
   els.content.value = note.content;
   updateTypeFields();
@@ -281,9 +315,10 @@ function flushEditor() {
   const note = notes.find((n) => n.id === activeId);
   const amount = els.amount.value === "" ? null : Number(els.amount.value);
   const interval = Math.max(1, Number(els.repeatInterval.value) || 1);
-  if (!note || (note.title === els.title.value && note.content === els.content.value && (note.item_type || "task") === els.type.value && Number(note.amount ?? 0) === Number(amount ?? 0) && (note.due_date || "") === els.date.value && (note.repeat_rule || "none") === els.repeat.value && Number(note.repeat_interval || 1) === interval)) return;
+  const remindDays = Math.max(0, Math.min(365, Number(els.remindDays.value) || 0));
+  if (!note || (note.title === els.title.value && note.content === els.content.value && (note.item_type || "task") === els.type.value && Number(note.amount ?? 0) === Number(amount ?? 0) && (note.due_date || "") === els.date.value && (note.repeat_rule || "none") === els.repeat.value && Number(note.repeat_interval || 1) === interval && Number(note.remind_days_before || 0) === remindDays)) return;
   note.title = els.title.value; note.content = els.content.value; note.item_type = els.type.value; note.amount = amount;
-  note.due_date = els.date.value || null; note.repeat_rule = els.repeat.value; note.repeat_interval = interval;
+  note.due_date = els.date.value || null; note.repeat_rule = els.repeat.value; note.repeat_interval = interval; note.remind_days_before = remindDays;
   note.updated_at = new Date().toISOString(); note.dirty = true;
   persistNotes(); render(); updateEditorFooter(note); scheduleSync();
 }
@@ -443,7 +478,7 @@ document.addEventListener("keydown", (event) => { if (event.key === "Escape" && 
 $("#newNoteButton").addEventListener("click", createNote); $("#emptyNewButton").addEventListener("click", createNote);
 $("#closeEditorButton").addEventListener("click", closeEditor); els.backdrop.addEventListener("click", closeEditor);
 els.title.addEventListener("input", debounceSave); els.content.addEventListener("input", debounceSave); els.date.addEventListener("change", flushEditor);
-els.repeat.addEventListener("change", flushEditor); els.repeatInterval.addEventListener("change", flushEditor); els.amount.addEventListener("input", debounceSave); els.type.addEventListener("change", applyTypeDefaults);
+els.repeat.addEventListener("change", flushEditor); els.repeatInterval.addEventListener("change", flushEditor); els.remindDays.addEventListener("input", debounceSave); els.amount.addEventListener("input", debounceSave); els.type.addEventListener("change", applyTypeDefaults);
 els.pin.addEventListener("click", togglePin); $("#deleteButton").addEventListener("click", deleteActive);
 els.complete.addEventListener("click", () => completeNote(activeId));
 els.search.addEventListener("input", render); els.account.addEventListener("click", () => { updateAccountUI(); els.auth.showModal(); });

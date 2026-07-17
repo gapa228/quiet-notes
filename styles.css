@@ -81,6 +81,15 @@ button { color: inherit; }
 .button.full { width: 100%; margin-top: 9px; }
 
 .notes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 13px; }
+.advance-section { margin-bottom: 15px; padding: 14px; border: 1px solid rgba(255,171,100,.2); border-radius: 18px; background: linear-gradient(145deg, rgba(255,171,100,.1), rgba(124,92,255,.08)); }
+.section-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.section-heading p { margin: 0 0 2px; color: var(--orange); font-size: 8px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+.section-heading h2 { margin: 0; font-size: 14px; }
+.section-icon { display: grid; place-items: center; width: 33px; height: 33px; border-radius: 11px; background: rgba(255,171,100,.12); color: var(--orange); font-size: 17px; }
+.advance-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.note-card.advance-card { min-height: 150px; border-color: rgba(255,171,100,.18); background: linear-gradient(145deg, #282039, #191933); }
+.advance-card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.advance-card-top strong { color: var(--orange); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
 .note-card { position: relative; min-height: 190px; padding: 21px; overflow: hidden; border: 1px solid var(--line); border-radius: 17px; background: linear-gradient(145deg, #1b1b3d, #14142f); cursor: pointer; box-shadow: 0 14px 35px rgba(0,0,18,.2); transition: transform .18s ease, border-color .18s ease; }
 .note-card:nth-child(3n+2) { background: linear-gradient(145deg, #282039, #19162f); }
 .note-card:nth-child(3n+3) { background: linear-gradient(145deg, #182f38, #131a30); }
@@ -132,6 +141,9 @@ button { color: inherit; }
 .date-field input, .date-field select { padding: 7px 9px; border: 1px solid var(--line); border-radius: 9px; outline: 0; background: #1b1b39; color: var(--ink); font-size: 11px; letter-spacing: 0; text-transform: none; color-scheme: dark; }
 .date-field input[type="number"] { width: 72px; }
 .price-field b { color: var(--muted); }
+.reminder-field { flex-wrap: wrap; width: 100%; }
+.reminder-field b { color: var(--orange); }
+.reminder-field small { flex-basis: 100%; color: #777690; font-size: 8px; font-weight: 500; letter-spacing: 0; text-transform: none; }
 .note-content { flex: 1; width: 100%; margin-top: 20px; padding: 0; resize: none; border: 0; outline: 0; background: transparent; color: #c6c4d6; font-size: 16px; line-height: 1.7; }
 .editor-footer { display: flex; align-items: center; gap: 16px; padding-top: 14px; border-top: 1px solid var(--line); color: #777690; font-size: 9px; text-transform: uppercase; letter-spacing: .07em; }
 .editor-footer #editedAt { margin-left: auto; }

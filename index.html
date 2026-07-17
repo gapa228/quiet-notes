@@ -67,6 +67,16 @@
             <p id="emptyText">Создайте дело, событие, день рождения или напоминание о продукте.</p>
             <button id="emptyNewButton" class="button primary" type="button">Создать запись</button>
           </div>
+          <section id="advanceSection" class="advance-section hidden" aria-labelledby="advanceTitle">
+            <div class="section-heading">
+              <span class="section-icon">◷</span>
+              <div>
+                <p>Заранее</p>
+                <h2 id="advanceTitle">Скоро потребуется внимание</h2>
+              </div>
+            </div>
+            <div id="advanceGrid" class="advance-grid"></div>
+          </section>
           <div id="notesGrid" class="notes-grid" aria-live="polite"></div>
           <div id="expensesView" class="expenses-view hidden"></div>
         </section>
@@ -107,6 +117,12 @@
           <option value="monthly">Месяц</option>
           <option value="yearly">Год</option>
         </select>
+      </label>
+      <label class="date-field reminder-field">
+        <span>Напомнить заранее</span>
+        <input id="remindDaysBefore" type="number" min="0" max="365" value="0" inputmode="numeric" aria-label="За сколько дней напомнить" />
+        <b>дн.</b>
+        <small>0 — только в день события</small>
       </label>
       <label class="date-field price-field">
         <span>Стоимость</span>

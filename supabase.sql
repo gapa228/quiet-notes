@@ -9,6 +9,7 @@ create table if not exists public.notes (
   due_date date,
   repeat_rule text not null default 'none',
   repeat_interval integer not null default 1,
+  remind_days_before integer not null default 0,
   completed_at timestamptz,
   pinned boolean not null default false,
   deleted boolean not null default false,
@@ -20,6 +21,7 @@ alter table public.notes add column if not exists item_type text not null defaul
 alter table public.notes add column if not exists amount numeric(12,2);
 alter table public.notes add column if not exists repeat_rule text not null default 'none';
 alter table public.notes add column if not exists repeat_interval integer not null default 1;
+alter table public.notes add column if not exists remind_days_before integer not null default 0;
 alter table public.notes add column if not exists completed_at timestamptz;
 
 create index if not exists notes_user_updated_idx on public.notes (user_id, updated_at desc);

@@ -20,12 +20,12 @@
 
 * { box-sizing: border-box; }
 html { min-height: 100%; background: var(--bg); }
-body { min-width: 320px; min-height: 100vh; margin: 0; background: radial-gradient(circle at 50% -10%, #30215a 0, transparent 36%), var(--bg); }
+body { min-width: 320px; min-height: 100vh; min-height: 100dvh; margin: 0; background: radial-gradient(circle at 50% -10%, #30215a 0, transparent 36%), var(--bg); }
 button, input, textarea, select { font: inherit; }
 button { color: inherit; }
 .hidden { display: none !important; }
 
-.app-shell { width: min(1160px, 100%); min-height: 100vh; margin: auto; }
+.app-shell { width: min(1160px, 100%); min-height: 100vh; min-height: 100dvh; margin: auto; }
 .topbar { height: 66px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; }
 .brand { display: flex; align-items: center; gap: 11px; padding: 0; border: 0; background: transparent; color: var(--ink); text-decoration: none; font-weight: 700; cursor: pointer; }
 .brand-mark { display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid var(--line); border-radius: 13px; background: rgba(255,255,255,.04); font-size: 18px; }
@@ -225,9 +225,9 @@ button { color: inherit; }
 
 @media (max-width: 840px) {
   .app-shell { width: 100%; }
-  .topbar { height: 52px; padding: 0 12px; }
+  .topbar { height: calc(52px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left)); }
   .brand span:last-child, .sync-status { display: none; }
-  .workspace { display: block; padding: 0 10px 55px; }
+  .workspace { display: block; padding: 0 max(10px, env(safe-area-inset-right)) calc(55px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); }
   .sidebar-heading { min-height: 170px; padding: 13px 10px; border-radius: 0 0 18px 18px; border-top: 0; }
   .sidebar-heading::before { bottom: 53px; height: 63px; }
   .sidebar-heading::after { bottom: 45px; height: 55px; }
@@ -267,6 +267,11 @@ button { color: inherit; }
   .editor-footer { flex-wrap: wrap; }
   .editor-footer #editedAt { margin-left: 0; }
   .auth-dialog form { padding: 36px 23px 25px; }
+}
+
+@media (min-width: 390px) and (max-width: 402px) and (min-height: 800px) {
+  .sidebar-heading { min-height: 168px; }
+  .advance-section, .tasks-section, .shopping-section { min-height: 132px; max-height: 132px; }
 }
 
 @media (min-width: 841px) and (max-width: 1040px) {
